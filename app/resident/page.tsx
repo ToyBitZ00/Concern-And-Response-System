@@ -240,9 +240,12 @@ export default function ResidentPage() {
   );
 }
 
-function Input({
-  value, onChange, ...props
-}: { value: string; onChange: (v: string) => void } & React.InputHTMLAttributes<HTMLInputElement>) {
+type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function Input({ value, onChange, ...props }: InputProps) {
   return (
     <input
       {...props}
