@@ -1,59 +1,57 @@
-"use client";
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
-export default function LoginPage() {
-  const supabase = createClient();
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
-    if (authErr || !data.user) {
-      setError("Invalid credentials.");
-      setLoading(false);
-      return;
-    }
-
-    const { data: staff } = await supabase
-      .from("staff")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    if (!staff) {
-      setError("No staff record found for this account.");
-      await supabase.auth.signOut();
-      setLoading(false);
-      return;
-    }
-
-    router.push(staff.role === "superadmin" ? "/superadmin" : "/admin");
-  }
-
+export default function HomePage() {
   return (
-    <div className="max-w-sm mx-auto p-6 mt-20">
-      <h1 className="text-xl font-semibold mb-1">Staff Login</h1>
-      <p className="text-sm text-zinc-500 mb-6">Barangay officials and system administrators</p>
-      <form onSubmit={handleLogin} className="flex flex-col gap-3">
-        <input required type="email" placeholder="Email" className="border rounded px-3 py-2"
-          value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input required type="password" placeholder="Password" className="border rounded px-3 py-2"
-          value={password} onChange={(e) => setPassword(e.target.value)} />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button disabled={loading} className="bg-black text-white rounded-full py-2.5 font-medium disabled:opacity-50">
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
-      </form>
-    </div>
+    <main>
+      <Navbar />
+
+      <section className="bg-green-50">
+        <div className="mx-auto grid min-h-[650px] max-w-7xl items-center gap-12 px-6 py-16 lg:grid-cols-2">
+          
+          <div>
+            <span className="mb-4 inline-block rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700">
+              Barangay Barangca • Candaba, Pampanga
+            </span>
+
+            <h1 className="max-w-2xl text-5xl font-bold leading-tight text-gray-900 md:text-6xl">
+              Cleaner surroundings start with{" "}
+              <span className="text-green-600">one report.</span>
+            </h1>
+
+            <p className="mt-6 max-w-xl text-lg leading-8 text-gray-600">
+              Report improper waste disposal concerns directly to the
+              barangay and follow their progress from submission to resolution.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/resident"
+                className="rounded-full bg-green-600 px-7 py-3 text-center font-semibold text-white hover:bg-green-700"
+              >
+                Submit a Report
+              </Link>
+
+              <a
+                href="#how-it-works"
+                className="rounded-full border border-green-200 bg-white px-7 py-3 text-center font-semibold text-green-700"
+              >
+                How It Works
+              </a>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[2rem] shadow-xl">
+            <img
+              src="/images/hero-landscape.jpg"
+              alt="Green landscape"
+              className="h-[420px] w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* More sections will go here */}
+    </main>
   );
 }
