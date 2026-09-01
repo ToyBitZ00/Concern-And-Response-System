@@ -965,10 +965,10 @@ export default function Page() {
 
       <header className="sticky top-0 z-50 border-b border-emerald-100/70 bg-white/90 shadow-sm shadow-emerald-950/5 backdrop-blur-xl">
 
-        <div className="mx-auto flex min-h-[76px] max-w-7xl flex-col gap-3 px-5 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
+        <div className="mx-auto flex min-h-[76px] max-w-7xl flex-col gap-3 px-5 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8 mobile-header-inner">
 
           {/* LOGO */}
-          <button type="button" onClick={() => showAdminSection('overview')} className="group flex items-center gap-3 self-start lg:self-auto">
+          <button type="button" onClick={() => showAdminSection('overview')} className="group flex items-center gap-3 self-start lg:self-auto mobile-logo">
 
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm shadow-emerald-900/20 transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
               <Sparkles className="h-4 w-4" />
@@ -989,7 +989,7 @@ export default function Page() {
           {/* RIGHT NAV */}
           <div className="flex w-full items-center gap-4 lg:ml-auto lg:w-auto lg:gap-8">
 
-            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl border border-emerald-100 bg-white/70 p-1 shadow-inner lg:flex-none">
+            <nav className="desktop-nav flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl border border-emerald-100 bg-white/70 p-1 shadow-inner lg:flex-none">
               {ADMIN_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const selected = activeSection === item.section;
@@ -1100,16 +1100,36 @@ export default function Page() {
         </div>
       </header>
 
+      {/* MOBILE APP NAVIGATION — mobile only; desktop UI is unchanged */}
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        {ADMIN_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const selected = activeSection === item.section;
+          return (
+            <button
+              key={item.section}
+              type="button"
+              onClick={() => showAdminSection(item.section)}
+              className={`mobile-bottom-nav-item ${selected ? 'active' : ''}`}
+              aria-current={selected ? 'page' : undefined}
+            >
+              <Icon className="h-5 w-5" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
       {/* =====================================================
           MAIN
       ====================================================== */}
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 pb-16 pt-7 sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 pb-16 pt-7 sm:px-6 sm:pb-20 sm:pt-10 lg:px-8 mobile-main">
         {/* ===================================================
             PAGE HEADER
         ==================================================== */}
 
-        <div className="animate-fade-up mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="animate-fade-up mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between mobile-page-header">
           <div>
             <div className="mb-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#00A859]" />
@@ -1148,7 +1168,7 @@ export default function Page() {
             KPI CARDS
         ==================================================== */}
 
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mobile-kpi-grid">
           {/* TOTAL REPORTS */}
 
           <button
@@ -1157,7 +1177,7 @@ export default function Page() {
               changeReportFilter('All');
               showAdminSection('reports');
             }}
-            className="group animate-fade-up rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5"
+            className="group mobile-kpi-card animate-fade-up rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#00A859] transition-colors group-hover:bg-[#00A859] group-hover:text-white">
@@ -1188,7 +1208,7 @@ export default function Page() {
               changeReportFilter('Pending');
               showAdminSection('reports');
             }}
-            className="group animate-fade-up delay-100 rounded-2xl border border-amber-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(100,70,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl"
+            className="group mobile-kpi-card animate-fade-up delay-100 rounded-2xl border border-amber-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(100,70,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white">
@@ -1219,7 +1239,7 @@ export default function Page() {
               changeReportFilter('Resolved');
               showAdminSection('reports');
             }}
-            className="group animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
+            className="group mobile-kpi-card animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#00A859] transition-colors group-hover:bg-[#00A859] group-hover:text-white">
@@ -1250,7 +1270,7 @@ export default function Page() {
               changeResidentFilter('Verified');
               showAdminSection('residents');
             }}
-            className="group animate-fade-up delay-300 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
+            className="group mobile-kpi-card animate-fade-up delay-300 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#00A859] transition-colors group-hover:bg-[#00A859] group-hover:text-white">
@@ -1281,7 +1301,7 @@ export default function Page() {
               changeResidentFilter('Unverified');
               showAdminSection('residents');
             }}
-            className="group animate-fade-up delay-400 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
+            className="group mobile-kpi-card animate-fade-up delay-400 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition-colors group-hover:bg-slate-900 group-hover:text-white">
@@ -1318,7 +1338,7 @@ export default function Page() {
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
               {/* BAR GRAPH */}
 
-              <div className="animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-8 md:p-8">
+              <div className="mobile-chart-card animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-8 md:p-8">
                 <div className="mb-7 flex items-start justify-between">
                   <div>
                     <div className="mb-1 flex items-center gap-2">
@@ -1356,7 +1376,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="h-[300px] w-full">
+                <div className="h-[300px] w-full mobile-chart-area">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={monthlyReports}
@@ -1443,7 +1463,7 @@ export default function Page() {
 
               {/* DONUT GRAPH */}
 
-              <div className="animate-fade-up delay-300 flex flex-col rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-4 md:p-8">
+              <div className="mobile-donut-card animate-fade-up delay-300 flex flex-col rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-4 md:p-8">
                 <div className="mb-3">
                   <div className="mb-1 flex items-center gap-2">
                     <Activity className="h-4 w-4 text-[#00A859]" />
@@ -1462,7 +1482,7 @@ export default function Page() {
                   </p>
                 </div>
 
-                <div className="relative flex min-h-[300px] flex-1 items-center justify-center">
+                <div className="relative flex min-h-[300px] flex-1 items-center justify-center mobile-donut-area">
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <defs>
@@ -1588,7 +1608,7 @@ export default function Page() {
                 RECENT REPORTS
             ================================================== */}
 
-            <div className="animate-fade-up delay-400 mt-5 overflow-hidden rounded-2xl border border-emerald-100 bg-white/95 shadow-[0_4px_20px_rgba(0,100,60,0.04)]">
+            <div className="mobile-recent animate-fade-up delay-400 mt-5 overflow-hidden rounded-2xl border border-emerald-100 bg-white/95 shadow-[0_4px_20px_rgba(0,100,60,0.04)]">
               <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 md:px-8">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
@@ -2622,7 +2642,7 @@ export default function Page() {
       ====================================================== */}
 
       {showNotification && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-fade-right">
+        <div className="fixed bottom-6 right-6 z-[100] animate-fade-right mobile-notification">
           <div className="flex max-w-sm items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_20px_60px_rgba(0,100,60,0.18)]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A859]">
               <CheckCircle2 className="h-5 w-5" />
@@ -2654,7 +2674,7 @@ export default function Page() {
           FOOTER
       ====================================================== */}
 
-      <footer className="relative z-10 mt-auto border-t border-emerald-100 bg-white/80">
+      <footer className="relative z-10 mt-auto border-t border-emerald-100 bg-white/80 mobile-footer">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00A859] text-white">
@@ -2753,6 +2773,426 @@ export default function Page() {
         ::-webkit-scrollbar-thumb:hover {
           background: #00a859;
         }
+
+        /* =====================================================
+           MOBILE APP VIEW ONLY
+           These rules are scoped to screens 767px and below.
+           Desktop/tablet styles remain unchanged.
+        ====================================================== */
+        .mobile-bottom-nav {
+          display: none;
+        }
+
+        @media (max-width: 767px) {
+          html, body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
+          body {
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .mobile-header-inner {
+            min-height: 58px !important;
+            height: 58px !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 8px !important;
+            padding: 7px 12px !important;
+          }
+
+          .mobile-logo {
+            gap: 8px !important;
+          }
+
+          .mobile-logo > div:first-child {
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 10px !important;
+          }
+
+          .mobile-logo > div:first-child svg {
+            width: 15px !important;
+            height: 15px !important;
+          }
+
+          .mobile-logo span:first-child {
+            font-size: 15px !important;
+          }
+
+          .mobile-logo span:last-child {
+            margin-top: 2px !important;
+            font-size: 8px !important;
+          }
+
+          .desktop-nav {
+            display: none !important;
+          }
+
+          .mobile-header-inner > div:last-child {
+            width: auto !important;
+            flex: 0 0 auto !important;
+            margin-left: auto !important;
+          }
+
+          .mobile-header-inner .h-7.w-px {
+            display: none !important;
+          }
+
+          .mobile-header-inner .relative > button {
+            min-height: 38px !important;
+            padding: 3px !important;
+          }
+
+          .mobile-header-inner .relative > button > div:first-child {
+            width: 34px !important;
+            height: 34px !important;
+          }
+
+          .mobile-header-inner .relative > button > svg {
+            width: 14px !important;
+            height: 14px !important;
+          }
+
+          .mobile-main {
+            padding: 14px 10px 88px !important;
+          }
+
+          .mobile-page-header {
+            margin-bottom: 12px !important;
+            gap: 8px !important;
+          }
+
+          .mobile-page-header > div:first-child > div:first-child {
+            margin-bottom: 4px !important;
+          }
+
+          .mobile-page-header > div:first-child > div:first-child p {
+            font-size: 8px !important;
+            letter-spacing: .12em !important;
+          }
+
+          .mobile-page-header h1 {
+            font-size: 21px !important;
+            line-height: 1.15 !important;
+          }
+
+          .mobile-page-header h1 + p {
+            display: none !important;
+          }
+
+          .mobile-page-header > div:last-child {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 7px 9px !important;
+            border-radius: 10px !important;
+          }
+
+          .mobile-page-header > div:last-child span {
+            font-size: 9px !important;
+          }
+
+          .mobile-page-header > div:last-child svg {
+            width: 13px !important;
+            height: 13px !important;
+          }
+
+          .mobile-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 7px !important;
+            margin-bottom: 10px !important;
+          }
+
+          .mobile-kpi-card {
+            min-height: 88px !important;
+            padding: 10px !important;
+            border-radius: 13px !important;
+          }
+
+          .mobile-kpi-card > div:first-child > div:first-child {
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 8px !important;
+          }
+
+          .mobile-kpi-card > div:first-child > div:first-child svg {
+            width: 14px !important;
+            height: 14px !important;
+          }
+
+          .mobile-kpi-card > div:first-child > svg {
+            width: 12px !important;
+            height: 12px !important;
+          }
+
+          .mobile-kpi-card p.mt-5 {
+            margin-top: 7px !important;
+            font-size: 9px !important;
+          }
+
+          .mobile-kpi-card p.text-3xl {
+            margin-top: 0 !important;
+            font-size: 20px !important;
+            line-height: 1.1 !important;
+          }
+
+          .mobile-kpi-card p.text-\[11px\] {
+            display: none !important;
+          }
+
+          .mobile-chart-card, .mobile-donut-card, .mobile-recent {
+            border-radius: 13px !important;
+          }
+
+          .mobile-chart-card {
+            padding: 11px !important;
+          }
+
+          .mobile-chart-card > div:first-child {
+            margin-bottom: 6px !important;
+            gap: 5px !important;
+          }
+
+          .mobile-chart-card h2, .mobile-donut-card h2 {
+            font-size: 13px !important;
+          }
+
+          .mobile-chart-card p, .mobile-donut-card p {
+            font-size: 9px !important;
+            line-height: 1.35 !important;
+          }
+
+          .mobile-chart-card > div:first-child > div:last-child {
+            gap: 0 !important;
+          }
+
+          .mobile-chart-card > div:first-child > div:last-child button {
+            height: 25px !important;
+            padding: 0 7px !important;
+            font-size: 8px !important;
+            border-radius: 7px !important;
+          }
+
+          .mobile-chart-area {
+            height: 205px !important;
+          }
+
+          .mobile-chart-area .recharts-responsive-container {
+            min-height: 0 !important;
+          }
+
+          .mobile-chart-area .recharts-cartesian-axis-tick-value {
+            font-size: 9px !important;
+          }
+
+          .mobile-donut-card {
+            padding: 11px !important;
+          }
+
+          .mobile-donut-area {
+            min-height: 215px !important;
+            height: 215px !important;
+          }
+
+          .mobile-donut-area .recharts-responsive-container {
+            height: 215px !important;
+          }
+
+          .mobile-donut-area .recharts-pie-sector {
+            outline: none;
+          }
+
+          .mobile-donut-card .text-3xl {
+            font-size: 21px !important;
+          }
+
+          .mobile-donut-card .grid {
+            gap: 5px !important;
+            padding-top: 8px !important;
+          }
+
+          .mobile-donut-card .grid span {
+            font-size: 8px !important;
+          }
+
+          .mobile-donut-card .grid p {
+            font-size: 12px !important;
+          }
+
+          .mobile-recent {
+            margin-top: 9px !important;
+          }
+
+          .mobile-recent > div:first-child {
+            padding: 10px !important;
+          }
+
+          .mobile-recent > div:first-child h2 {
+            font-size: 13px !important;
+          }
+
+          .mobile-recent > div:first-child button {
+            width: 100% !important;
+            padding: 7px 9px !important;
+            font-size: 9px !important;
+          }
+
+          .mobile-recent .divide-y > div {
+            padding: 9px 10px !important;
+            gap: 6px !important;
+          }
+
+          .mobile-recent .divide-y > div > div:first-child {
+            gap: 8px !important;
+          }
+
+          .mobile-recent .divide-y > div > div:first-child > div:first-child {
+            width: 30px !important;
+            height: 30px !important;
+            border-radius: 8px !important;
+            font-size: 9px !important;
+          }
+
+          .mobile-recent .divide-y p {
+            font-size: 9px !important;
+          }
+
+          .mobile-recent .divide-y .text-\[11px\] {
+            font-size: 8px !important;
+          }
+
+          .mobile-recent .divide-y span.rounded-full {
+            padding: 3px 6px !important;
+            font-size: 8px !important;
+          }
+
+          .mobile-footer {
+            display: none !important;
+          }
+
+          .mobile-bottom-nav {
+            position: fixed !important;
+            left: 8px !important;
+            right: 8px !important;
+            bottom: 8px !important;
+            z-index: 80 !important;
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 4px !important;
+            padding: 5px !important;
+            border: 1px solid rgba(0,168,89,.14) !important;
+            border-radius: 16px !important;
+            background: rgba(255,255,255,.94) !important;
+            box-shadow: 0 12px 35px rgba(15,23,42,.14) !important;
+            backdrop-filter: blur(18px) !important;
+            -webkit-backdrop-filter: blur(18px) !important;
+          }
+
+          .mobile-bottom-nav-item {
+            min-width: 0 !important;
+            min-height: 50px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 2px !important;
+            border: 0 !important;
+            border-radius: 12px !important;
+            background: transparent !important;
+            color: #94a3b8 !important;
+            font-size: 8px !important;
+            font-weight: 800 !important;
+            transition: .2s ease !important;
+          }
+
+          .mobile-bottom-nav-item.active {
+            background: #00A859 !important;
+            color: white !important;
+            box-shadow: 0 5px 15px rgba(0,168,89,.22) !important;
+          }
+
+          .mobile-bottom-nav-item:active {
+            transform: scale(.96);
+          }
+
+          .mobile-notification {
+            left: 10px !important;
+            right: 10px !important;
+            bottom: 76px !important;
+          }
+
+          .mobile-notification > div {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 10px !important;
+            border-radius: 13px !important;
+          }
+
+          /* Reports / Accounts pages */
+          .mobile-main > div.animate-fade-up.rounded-xl {
+            border-radius: 13px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl > div:first-child {
+            padding: 11px !important;
+            gap: 8px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl h2 {
+            font-size: 15px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .min-h-\[460px\] {
+            min-height: 0 !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .divide-y > div > button {
+            padding: 10px !important;
+            gap: 7px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .divide-y > div > button > div:first-child > div:first-child {
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 9px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .divide-y > div > button p {
+            font-size: 9px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .divide-y > div > button .rounded-full {
+            padding: 3px 6px !important;
+            font-size: 8px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .divide-y > div > div.bg-emerald-50\/30 {
+            padding: 10px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .border-t.bg-slate-50\/70 {
+            padding: 9px 10px !important;
+          }
+
+          .mobile-main > div.animate-fade-up.rounded-xl .border-t.bg-slate-50\/70 button {
+            height: 32px !important;
+            padding: 0 10px !important;
+            font-size: 9px !important;
+          }
+
+          /* Keep touch targets comfortable even though the visual UI is compact. */
+          button, select, input {
+            touch-action: manipulation;
+          }
+
+          input, select {
+            font-size: 16px !important;
+          }
+        }
+
       `}</style>
     </div>
   );
