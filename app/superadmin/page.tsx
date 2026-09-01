@@ -1,14 +1,23 @@
 "use client";
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   ArrowUpDown,
   CheckCircle2,
   ChevronDown,
   Filter,
+  LogOut,
+  Mail,
+  Phone,
   Plus,
+  Save,
   Search,
+  Settings,
   ShieldCheck,
   Sparkles,
   UserCheck,
@@ -40,7 +49,22 @@ type Admin = {
   joined: string;
 };
 
+type SuperAdminProfile = {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+};
+
+const DEFAULT_SUPER_ADMIN_PROFILE: SuperAdminProfile = {
+  fullName: "Super Admin",
+  email: "superadmin@barangca.gov.ph",
+  phone: "Not provided",
+  role: "System Administrator",
+};
+
 export default function SuperAdminPage() {
+  const router = useRouter();
   const [activeView, setActiveView] = useState<AccountView>("Residents");
 
   const [residents, setResidents] = useState<Resident[]>([]);
@@ -55,6 +79,16 @@ export default function SuperAdminPage() {
   const [adminSearch, setAdminSearch] = useState("");
   const [adminRoleFilter, setAdminRoleFilter] = useState("All");
   const [adminSortBy, setAdminSortBy] = useState("Newest");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [superAdminProfile, setSuperAdminProfile] =
+    useState<SuperAdminProfile>(DEFAULT_SUPER_ADMIN_PROFILE);
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Create admin modal state
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
@@ -132,9 +166,40 @@ export default function SuperAdminPage() {
   }, []);
 
   useEffect(() => {
-    fetchResidents();
-    fetchAdmins();
+    const loadAccounts = async () => {
+      await Promise.all([fetchResidents(), fetchAdmins()]);
+    };
+
+    loadAccounts();
   }, [fetchResidents, fetchAdmins]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email, phone, role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setSuperAdminProfile({
+        fullName: data?.full_name ?? user.email ?? "Super Admin",
+        email: data?.email ?? user.email ?? "Not provided",
+        phone: data?.phone ?? "Not provided",
+        role:
+          data?.role === "superadmin"
+            ? "Super Administrator"
+            : "System Administrator",
+      });
+    };
+
+    loadProfile();
+  }, []);
 
   /* =========================================================
      ACTIONS
@@ -185,6 +250,62 @@ export default function SuperAdminPage() {
     } finally {
       setCreatingAdmin(false);
     }
+  };
+
+  const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getUser();
+
+    if (authData.user) {
+      await supabase
+        .from("profiles")
+        .update({
+          full_name: superAdminProfile.fullName,
+          phone: superAdminProfile.phone,
+        })
+        .eq("id", authData.user.id);
+    }
+
+    setProfileModalOpen(false);
+  };
+
+  const handleChangePassword = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({
+      password: passwordForm.newPassword,
+    });
+
+    if (error) {
+      setPasswordError(error.message);
+      return;
+    }
+
+    setPasswordError(null);
+    setPasswordForm({ newPassword: "", confirmPassword: "" });
+    setPasswordModalOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setProfileMenuOpen(false);
+    router.push("/login");
   };
 
   /* =========================================================
@@ -292,105 +413,127 @@ export default function SuperAdminPage() {
       {/* =====================================================
           NAVBAR
       ====================================================== */}
-      <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center px-6 lg:px-8">
-          <a href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
+      <header className="sticky top-0 z-50 border-b border-emerald-100/70 bg-white/90 shadow-sm shadow-emerald-950/5 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[76px] max-w-7xl flex-col gap-3 px-5 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
+          <Link href="/" className="group flex items-center gap-3 self-start lg:self-auto">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm shadow-emerald-900/20 transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
               <Sparkles className="h-4 w-4" />
             </div>
-            <div className="leading-none">
-              <span className="text-lg font-bold tracking-tight text-gray-950">
+            <div className="text-left leading-none">
+              <span className="block text-lg font-bold tracking-tight text-gray-950">
                 eConcern
               </span>
-              <span className="ml-1 text-[9px] font-bold uppercase tracking-[0.15em] text-[#00A859]">
-                Barangay
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.15em] text-[#00A859]">
+                Super Admin
               </span>
             </div>
-          </a>
+          </Link>
 
-          <div className="ml-auto flex items-center gap-5 lg:gap-8">
-            <nav className="hidden items-center gap-6 lg:flex">
+          <div className="flex w-full items-center gap-4 lg:ml-auto lg:w-auto lg:gap-8">
+            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl border border-emerald-100 bg-white/70 p-1 shadow-inner lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveView("Residents")}
-                className={`relative py-2 text-sm transition ${
+                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition sm:px-4 ${
                   activeView === "Residents"
-                    ? "font-semibold text-gray-950"
-                    : "font-medium text-gray-500 hover:text-gray-950"
+                    ? "bg-[#00A859] text-white shadow-sm"
+                    : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
                 }`}
               >
+                <Users className="h-4 w-4" />
                 Resident Accounts
-                {activeView === "Residents" && (
-                  <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-                )}
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveView("Admins")}
-                className={`relative py-2 text-sm transition ${
+                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition sm:px-4 ${
                   activeView === "Admins"
-                    ? "font-semibold text-gray-950"
-                    : "font-medium text-gray-500 hover:text-gray-950"
+                    ? "bg-[#00A859] text-white shadow-sm"
+                    : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
                 }`}
               >
+                <ShieldCheck className="h-4 w-4" />
                 Admin Accounts
-                {activeView === "Admins" && (
-                  <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-                )}
               </button>
             </nav>
 
             <div className="hidden h-7 w-px bg-gray-200 lg:block" />
 
-            <div className="hidden items-center gap-3 sm:flex">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-[#00A859]">
-                <UserRound className="h-4 w-4" />
-              </div>
-              <div className="hidden xl:block">
-                <p className="text-xs font-bold text-gray-900">
-                  Super Admin
-                </p>
-                <p className="text-[10px] text-gray-400">
-                  System Administrator
-                </p>
-              </div>
+            <div className="relative block shrink-0">
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((isOpen) => !isOpen)}
+                className="flex items-center gap-2 rounded-xl px-1.5 py-1.5 transition hover:bg-white/80 sm:gap-3 sm:px-2"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#00A859] ring-1 ring-emerald-100 sm:h-9 sm:w-9">
+                  <UserRound className="h-4 w-4" />
+                </div>
+
+                <div className="hidden text-left lg:block">
+                  <p className="text-xs font-bold text-gray-900">
+                    {superAdminProfile.fullName}
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    {superAdminProfile.role}
+                  </p>
+                </div>
+
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform ${
+                    profileMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-12 z-[80] w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+                  <div className="border-b border-slate-100 bg-emerald-50/60 px-4 py-4">
+                    <p className="text-sm font-bold text-slate-950">
+                      {superAdminProfile.fullName}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-400">
+                      {superAdminProfile.email}
+                    </p>
+                  </div>
+
+                  <div className="p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setProfileModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-[#008F4B]"
+                    >
+                      <UserRound className="h-4 w-4" />
+                      View Profile
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setPasswordModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-[#008F4B]"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Change Password
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* MOBILE NAV */}
-        <div className="border-t border-gray-100 bg-white px-6 py-3 lg:hidden">
-          <div className="mx-auto flex max-w-7xl gap-6 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setActiveView("Residents")}
-              className={`relative whitespace-nowrap pb-2 text-xs transition ${
-                activeView === "Residents"
-                  ? "font-bold text-gray-950"
-                  : "font-medium text-gray-500"
-              }`}
-            >
-              Resident Accounts
-              {activeView === "Residents" && (
-                <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView("Admins")}
-              className={`relative whitespace-nowrap pb-2 text-xs transition ${
-                activeView === "Admins"
-                  ? "font-bold text-gray-950"
-                  : "font-medium text-gray-500"
-              }`}
-            >
-              Admin Accounts
-              {activeView === "Admins" && (
-                <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-              )}
-            </button>
           </div>
         </div>
       </header>
@@ -1102,6 +1245,194 @@ export default function SuperAdminPage() {
           )}
         </div>
       </main>
+
+      {/* =====================================================
+          PROFILE MODAL
+      ====================================================== */}
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4 py-8 backdrop-blur-sm">
+          <div className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl border border-emerald-100 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Profile
+                </p>
+                <h3 className="mt-1 text-lg font-bold text-gray-950">
+                  Super Admin Profile
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-50 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="px-6 py-6">
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                  <Mail className="h-4 w-4 text-[#00A859]" />
+                  <span className="truncate text-xs font-semibold text-gray-600">
+                    {superAdminProfile.email}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                  <ShieldCheck className="h-4 w-4 text-[#00A859]" />
+                  <span className="truncate text-xs font-semibold text-gray-600">
+                    {superAdminProfile.role}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                    Full Name
+                  </span>
+                  <input
+                    type="text"
+                    value={superAdminProfile.fullName}
+                    onChange={(event) =>
+                      setSuperAdminProfile((profile) => ({
+                        ...profile,
+                        fullName: event.target.value,
+                      }))
+                    }
+                    className="mt-2 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                    Phone Number
+                  </span>
+                  <div className="relative mt-2">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={superAdminProfile.phone}
+                      onChange={(event) =>
+                        setSuperAdminProfile((profile) => ({
+                          ...profile,
+                          phone: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 pl-9 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalOpen(false)}
+                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          CHANGE PASSWORD MODAL
+      ====================================================== */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Settings
+                </p>
+                <h3 className="mt-1 text-lg font-bold text-gray-950">
+                  Change Password
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPasswordModalOpen(false)}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-50 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4 px-6 py-6">
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                  New Password
+                </span>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(event) =>
+                    setPasswordForm((form) => ({
+                      ...form,
+                      newPassword: event.target.value,
+                    }))
+                  }
+                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                  Confirm New Password
+                </span>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(event) =>
+                    setPasswordForm((form) => ({
+                      ...form,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                />
+              </label>
+
+              {passwordError && (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
+                  {passwordError}
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalOpen(false)}
+                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Password
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================
           CREATE ADMIN MODAL

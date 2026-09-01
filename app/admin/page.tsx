@@ -45,7 +45,7 @@ import {
    TYPES
 ========================================================= */
 
-type ReportStatus = 'Pending' | 'Resolved' | 'Blocked';
+type ReportStatus = 'Pending' | 'Viewed' | 'Resolved' | 'Blocked';
 
 type ResidentStatus = 'Verified' | 'Unverified' | 'Blocked';
 
@@ -128,7 +128,7 @@ const REPORTS: Report[] = [
     sitio: 'Sitio Maligaya',
     street: 'Mabini Street',
     landmark: 'Beside waiting shed',
-    status: 'Pending',
+    status: 'Viewed',
     date: 'Aug 30, 2026',
     createdAt: 'Aug 30, 2026, 10:05 AM',
   },
@@ -352,6 +352,10 @@ const STATUS_GRADIENTS = {
     from: '#fbbf24',
     to: '#d97706',
   },
+  Viewed: {
+    from: '#38bdf8',
+    to: '#0284c7',
+  },
   Resolved: {
     from: '#34d399',
     to: '#059669',
@@ -404,6 +408,9 @@ function statusClass(status: ReportStatus) {
 
     case 'Pending':
       return 'bg-amber-50 text-amber-700 border-amber-100';
+
+    case 'Viewed':
+      return 'bg-sky-50 text-sky-700 border-sky-100';
 
     case 'Blocked':
       return 'bg-red-50 text-red-700 border-red-100';
@@ -617,6 +624,29 @@ export default function Page() {
     setResidentPage(1);
   };
 
+  const markReportViewed = (reportId: string) => {
+    setReports((currentReports) =>
+      currentReports.map((report) =>
+        report.id === reportId
+          ? {
+              ...report,
+              status: 'Viewed',
+            }
+          : report
+      )
+    );
+    setExpandedReport(null);
+    setSelectedReport((report) =>
+      report?.id === reportId
+        ? {
+            ...report,
+            status: 'Viewed',
+          }
+        : report
+    );
+    setShowNotification(true);
+  };
+
   const resolveReport = (reportId: string) => {
     const resolvedAt = new Date().toLocaleString('en-US', {
       month: 'short',
@@ -757,6 +787,7 @@ export default function Page() {
     return {
       total: reports.length,
       pending: reports.filter((r) => r.status === 'Pending').length,
+      viewed: reports.filter((r) => r.status === 'Viewed').length,
       resolved: reports.filter((r) => r.status === 'Resolved').length,
       blocked: reports.filter((r) => r.status === 'Blocked').length,
     };
@@ -776,6 +807,10 @@ export default function Page() {
       {
         name: 'Pending',
         value: reportStats.pending,
+      },
+      {
+        name: 'Viewed',
+        value: reportStats.viewed,
       },
       {
         name: 'Resolved',
@@ -801,6 +836,16 @@ export default function Page() {
         year: 'numeric',
       }),
     [currentDate]
+  );
+
+  const verifiedResidentNames = useMemo(
+    () =>
+      new Set(
+        residents
+          .filter((resident) => resident.status === 'Verified')
+          .map((resident) => resident.name)
+      ),
+    [residents]
   );
 
   const filteredReports = useMemo(() => {
@@ -1503,7 +1548,7 @@ export default function Page() {
 
                 {/* LEGEND */}
 
-                <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-4">
                   {donutData.map((item) => (
                     <div
                       key={item.name}
@@ -1581,9 +1626,18 @@ export default function Page() {
                           {report.reference}
                         </p>
 
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {report.resident} · {report.category}
-                        </p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                          <p className="text-xs text-slate-500">
+                            {report.resident} · {report.category}
+                          </p>
+
+                          {verifiedResidentNames.has(report.resident) && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Verified
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1655,6 +1709,7 @@ export default function Page() {
                   {[
                     'All',
                     'Pending',
+                    'Viewed',
                     'Resolved',
                     'Blocked',
                   ].map((filter) => (
@@ -1702,9 +1757,18 @@ export default function Page() {
                             {report.reference}
                           </p>
 
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {report.resident} · {report.category}
-                          </p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                            <p className="text-xs text-slate-500">
+                              {report.resident} · {report.category}
+                            </p>
+
+                            {verifiedResidentNames.has(report.resident) && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Verified
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1737,9 +1801,18 @@ export default function Page() {
                               Resident
                             </p>
 
-                            <p className="mt-1 text-sm font-semibold text-slate-800">
-                              {report.resident}
-                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-800">
+                                {report.resident}
+                              </p>
+
+                              {verifiedResidentNames.has(report.resident) && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Verified
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div>
@@ -1764,6 +1837,16 @@ export default function Page() {
                         </div>
 
                         <div className="mt-5 flex flex-wrap gap-2">
+                          {report.status === 'Pending' && (
+                            <button
+                              type="button"
+                              onClick={() => markReportViewed(report.id)}
+                              className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-700"
+                            >
+                              Mark Viewed
+                            </button>
+                          )}
+
                           {report.status !== 'Resolved' &&
                             report.status !== 'Blocked' && (
                               <button
@@ -2123,10 +2206,24 @@ export default function Page() {
             <div className="grid grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_320px]">
               <div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <DetailField
-                    label="Full Name"
-                    value={selectedReport.resident}
-                  />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Full Name
+                    </p>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {selectedReport.resident}
+                      </p>
+
+                      {verifiedResidentNames.has(selectedReport.resident) && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
                   <DetailField
                     label="Category"
@@ -2208,6 +2305,16 @@ export default function Page() {
               >
                 Close
               </button>
+
+              {selectedReport.status === 'Pending' && (
+                <button
+                  type="button"
+                  onClick={() => markReportViewed(selectedReport.id)}
+                  className="rounded-xl bg-sky-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-sky-700"
+                >
+                  Mark Viewed
+                </button>
+              )}
 
               {selectedReport.status !== 'Resolved' &&
                 selectedReport.status !== 'Blocked' && (
