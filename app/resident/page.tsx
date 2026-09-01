@@ -18,11 +18,22 @@ import {
   Edit3,
   AlertCircle,
   Copy,
+  Search,
+  Clock,
+  SearchX // <-- Added this new icon for the "Not Found" state
 } from "lucide-react";
 
 type PhotoData = {
   file: File;
   preview: string;
+};
+
+// Types for Tracking
+type TrackedReport = {
+  id: string;
+  status: "Submitted" | "Pending" | "Viewed" | "Resolved";
+  category: string;
+  date: string;
 };
 
 export default function ReportPage() {
@@ -31,6 +42,9 @@ export default function ReportPage() {
 
   // Report Details State
   const [reportType, setReportType] = useState("Clogged Drainage");
+  const [reportPurok, setReportPurok] = useState("");
+  const [reportStreet, setReportStreet] = useState("");
+  const [reportLandmark, setReportLandmark] = useState("");
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<PhotoData | null>(null);
 
@@ -41,13 +55,19 @@ export default function ReportPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  // Validation Error State
+  // Validation Error States
   const [errors, setErrors] = useState({
     fullName: "",
     age: "",
     email: "",
     phone: "",
     purok: "",
+  });
+
+  const [reportErrors, setReportErrors] = useState({
+    reportPurok: "",
+    reportStreet: "",
+    description: "",
   });
 
   // Identity Verification & UI State
@@ -57,7 +77,12 @@ export default function ReportPage() {
   // Submission & Tracking State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
+  
+  // Tracking Search State
   const [trackInput, setTrackInput] = useState("");
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackedResult, setTrackedResult] = useState<TrackedReport | null>(null);
+  const [trackError, setTrackError] = useState(false); // <-- New state for handling "Not Found"
 
   // =======================================================================
   // DEBOUNCE DELAY IMPLEMENTATION (Database check simulation)
@@ -65,10 +90,8 @@ export default function ReportPage() {
   useEffect(() => {
     if (email.length > 5 && !isIdentityLocked && !errors.email) {
       const delayDebounceFn = setTimeout(() => {
-        // TODO: Replace with your actual Supabase query
         console.log("Checking database for existing user:", email);
       }, 800);
-
       return () => clearTimeout(delayDebounceFn);
     }
   }, [email, isIdentityLocked, errors.email]);
@@ -91,9 +114,9 @@ export default function ReportPage() {
     return "";
   };
 
-  const validatePurok = (val: string) => {
+  const validateLocationField = (val: string, fieldName: string) => {
     if (!val) return "";
-    if (val.trim().length < 2) return "Please enter your Purok/Street.";
+    if (val.trim().length < 2) return `${fieldName} is required.`;
     return "";
   };
 
@@ -128,7 +151,7 @@ export default function ReportPage() {
   const handlePurokChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setPurok(val);
-    setErrors((prev) => ({ ...prev, purok: validatePurok(val) }));
+    setErrors((prev) => ({ ...prev, purok: validateLocationField(val, "Purok/Street") }));
   };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,13 +166,31 @@ export default function ReportPage() {
     setErrors((prev) => ({ ...prev, phone: validatePhone(val) }));
   };
 
+  const handleReportPurokChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setReportPurok(val);
+    setReportErrors((prev) => ({ ...prev, reportPurok: validateLocationField(val, "Purok/Sitio") }));
+  };
+
+  const handleReportStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setReportStreet(val);
+    setReportErrors((prev) => ({ ...prev, reportStreet: validateLocationField(val, "Street") }));
+  };
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setDescription(val);
+    setReportErrors((prev) => ({ ...prev, description: val.trim() ? "" : "Description is required." }));
+  };
+
   // =======================================================================
   // FINAL VERIFICATION LOGIC
   // =======================================================================
   const handleVerifyIdentity = () => {
     const nameErr = validateName(fullName) || (!fullName ? "Required field" : "");
     const ageErr = validateAge(age) || (!age ? "Required field" : "");
-    const purokErr = validatePurok(purok) || (!purok ? "Required field" : "");
+    const purokErr = validateLocationField(purok, "Purok/Street") || (!purok ? "Required field" : "");
     const emailErr = validateEmail(email) || (!email ? "Required field" : "");
     const phoneErr = validatePhone(phone) || (!phone ? "Required field" : "");
 
@@ -180,12 +221,19 @@ export default function ReportPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const rpErr = validateLocationField(reportPurok, "Purok/Sitio") || (!reportPurok ? "Required field" : "");
+    const rsErr = validateLocationField(reportStreet, "Street") || (!reportStreet ? "Required field" : "");
+    const dErr = !description.trim() ? "Required field" : "";
+
+    if (rpErr || rsErr || dErr) {
+      setReportErrors({ reportPurok: rpErr, reportStreet: rsErr, description: dErr });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API Database Submission
     setTimeout(() => {
-      console.log({ fullName, email, reportType, description, photo: photo?.file });
-
       const currentYear = new Date().getFullYear();
       const generatedId = Math.floor(Math.random() * 1000) + 1; 
       const referenceNumber = `ECO-${currentYear}-${generatedId}`;
@@ -197,6 +245,9 @@ export default function ReportPage() {
 
   const handleResetForm = () => {
     setReportType("Clogged Drainage");
+    setReportPurok("");
+    setReportStreet("");
+    setReportLandmark("");
     setDescription("");
     removePhoto();
     setSubmittedReference(null);
@@ -205,9 +256,43 @@ export default function ReportPage() {
   const handleTrackNavigation = () => {
     if (submittedReference) {
       setTrackInput(submittedReference);
+      handleTrackSubmit(submittedReference);
     }
     setActiveTab("track");
   };
+
+  // =======================================================================
+  // TRACKING LOGIC (WITH NOT FOUND STATE)
+  // =======================================================================
+  const handleTrackSubmit = (overrideId?: string) => {
+    const searchId = overrideId || trackInput;
+    if (!searchId) return;
+
+    setIsTracking(true);
+    setTrackError(false);
+    setTrackedResult(null);
+    
+    // Simulate database lookup delay
+    setTimeout(() => {
+      // MOCK DATABASE CHECK: If the input doesn't start with "ECO-", trigger the "Not Found" error
+      if (!searchId.toUpperCase().startsWith("ECO-")) {
+        setTrackError(true);
+        setIsTracking(false);
+        return;
+      }
+
+      // If it passes, show the mocked result
+      setTrackedResult({
+        id: searchId.toUpperCase(),
+        status: "Viewed", 
+        category: reportType || "Environmental Concern",
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      });
+      setIsTracking(false);
+    }, 1000);
+  };
+
+  const trackingSteps = ["Submitted", "Pending", "Viewed", "Resolved"];
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#F6FBF8] font-sans text-gray-900 selection:bg-emerald-200">
@@ -277,10 +362,6 @@ export default function ReportPage() {
               Help keep our community clean by reporting clogged drainage,
               illegal dumping, or uncollected trash directly to barangay officials.
             </p>
-            <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-gray-500">
-              <ShieldCheck className="h-4 w-4 text-[#00A859]" />
-              No account required to submit a report
-            </div>
           </div>
 
           {/* TABS */}
@@ -433,12 +514,67 @@ export default function ReportPage() {
                         </div>
                       </div>
 
+                      {/* --- NEW LOCATION FIELDS --- */}
+                      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {/* PUROK / SITIO */}
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-gray-700">Purok / Sitio</label>
+                          <input 
+                            type="text" 
+                            required 
+                            value={reportPurok} 
+                            onChange={handleReportPurokChange} 
+                            placeholder="e.g. Purok 1" 
+                            className={`w-full rounded-xl border bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-4 ${reportErrors.reportPurok ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 focus:border-[#00A859] focus:ring-emerald-500/10"}`} 
+                          />
+                          {reportErrors.reportPurok && <p className="mt-1.5 text-[11px] font-medium text-red-500">{reportErrors.reportPurok}</p>}
+                        </div>
+                        
+                        {/* STREET */}
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-gray-700">Street</label>
+                          <input 
+                            type="text" 
+                            required 
+                            value={reportStreet} 
+                            onChange={handleReportStreetChange} 
+                            placeholder="e.g. Main Street" 
+                            className={`w-full rounded-xl border bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-4 ${reportErrors.reportStreet ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 focus:border-[#00A859] focus:ring-emerald-500/10"}`} 
+                          />
+                          {reportErrors.reportStreet && <p className="mt-1.5 text-[11px] font-medium text-red-500">{reportErrors.reportStreet}</p>}
+                        </div>
+                      </div>
+
+                      {/* LANDMARK (Optional) */}
+                      <div className="mt-4">
+                        <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+                          Landmark <span className="ml-1 font-normal text-gray-400">(Optional)</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          value={reportLandmark} 
+                          onChange={(e) => setReportLandmark(e.target.value)} 
+                          placeholder="e.g. Near the barangay hall, beside the waiting shed..." 
+                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10" 
+                        />
+                      </div>
+
+                      {/* DESCRIPTION */}
                       <div className="mt-4">
                         <div className="mb-1.5 flex items-center justify-between">
                           <label className="text-xs font-semibold text-gray-700">Description</label>
                           <span className="text-[11px] text-gray-400">{description.length}/500</span>
                         </div>
-                        <textarea rows={5} maxLength={500} required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the issue and include a nearby landmark..." className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10" />
+                        <textarea 
+                          rows={5} 
+                          maxLength={500} 
+                          required 
+                          value={description} 
+                          onChange={handleDescriptionChange} 
+                          placeholder="Provide additional details about the environmental concern..." 
+                          className={`w-full resize-none rounded-xl border bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-4 ${reportErrors.description ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 focus:border-[#00A859] focus:ring-emerald-500/10"}`} 
+                        />
+                        {reportErrors.description && <p className="mt-1.5 text-[11px] font-medium text-red-500">{reportErrors.description}</p>}
                       </div>
 
                       <div className="mt-4">
@@ -546,13 +682,15 @@ export default function ReportPage() {
               <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_20px_60px_-35px_rgba(0,100,60,0.3)] sm:p-10">
                 <div className="text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-[#00A859]">
-                    <BarChart3 className="h-6 w-6" />
+                    <Search className="h-6 w-6" />
                   </div>
                   <h2 className="mt-5 text-2xl font-bold tracking-tight text-gray-950">Track Your Reports</h2>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
                     Enter your report reference number to check its current status.
                   </p>
                 </div>
+                
+                {/* SEARCH INPUT */}
                 <div className="mx-auto mt-8 max-w-md">
                   <label className="mb-1.5 block text-xs font-semibold text-gray-700">Report Reference Number</label>
                   <div className="flex flex-col gap-3 sm:flex-row">
@@ -560,14 +698,108 @@ export default function ReportPage() {
                       type="text" 
                       value={trackInput}
                       onChange={(e) => setTrackInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleTrackSubmit()}
                       placeholder="e.g. ECO-2026-0001" 
                       className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10" 
                     />
-                    <button type="button" className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#008F4B]">
-                      Track
+                    <button 
+                      type="button" 
+                      onClick={() => handleTrackSubmit()}
+                      disabled={isTracking || !trackInput.trim()}
+                      className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#008F4B] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Track"}
                     </button>
                   </div>
                 </div>
+
+                {/* ERROR CARD (NOT FOUND) */}
+                {trackError && !isTracking && (
+                  <div className="animate-fade-up mt-8 rounded-2xl border border-red-100 bg-red-50 p-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <SearchX className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-bold text-gray-900">Report Not Found</h3>
+                    <p className="mt-2 text-sm text-gray-600">
+                      We couldn't find a record for that tracking number. Please check if you typed it correctly or file a new report.
+                    </p>
+                  </div>
+                )}
+
+                {/* TRACKING RESULT CARD */}
+                {trackedResult && !trackError && (
+                  <div className="animate-fade-up mt-10 rounded-2xl border border-emerald-100 bg-[#F8FCFA] p-6 sm:p-8">
+                    
+                    {/* Header Info */}
+                    <div className="flex flex-col gap-4 border-b border-emerald-100/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+                          {trackedResult.category}
+                        </p>
+                        <h3 className="mt-1 text-xl font-black text-gray-900">
+                          {trackedResult.id}
+                        </h3>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                          <Clock className="h-3.5 w-3.5" /> Date Submitted: {trackedResult.date}
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${
+                        trackedResult.status === "Resolved" ? "bg-emerald-100 text-emerald-700" :
+                        trackedResult.status === "Viewed" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+                        "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}>
+                        {trackedResult.status}
+                      </span>
+                    </div>
+
+                    {/* Stepper Progress */}
+                    <div className="mt-8">
+                      <div className="relative flex items-center justify-between">
+                        {/* Connecting Line Background */}
+                        <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-gray-200"></div>
+                        
+                        {/* Active Connecting Line */}
+                        <div 
+                          className="absolute left-0 top-1/2 h-1 -translate-y-1/2 bg-[#00A859] transition-all duration-500"
+                          style={{ width: `${(trackingSteps.indexOf(trackedResult.status) / (trackingSteps.length - 1)) * 100}%` }}
+                        ></div>
+
+                        {/* Steps */}
+                        {trackingSteps.map((step, index) => {
+                          const currentIndex = trackingSteps.indexOf(trackedResult.status);
+                          const isCompleted = index <= currentIndex;
+                          const isActive = index === currentIndex;
+
+                          return (
+                            <div key={step} className="relative z-10 flex flex-col items-center">
+                              <div className={`flex h-8 w-8 items-center justify-center rounded-full border-4 border-[#F8FCFA] transition-colors duration-300 ${
+                                isCompleted ? "bg-[#00A859] text-white" : "bg-gray-200 text-gray-400"
+                              }`}>
+                                {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <div className="h-2 w-2 rounded-full bg-white" />}
+                              </div>
+                              <span className={`absolute -bottom-6 text-[10px] sm:text-xs font-semibold ${
+                                isActive ? "text-[#00A859]" : isCompleted ? "text-gray-700" : "text-gray-400"
+                              }`}>
+                                {step}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Dynamic Message based on status */}
+                    <div className="mt-12 rounded-xl bg-white p-4 text-center shadow-sm">
+                      <p className="text-sm text-gray-600">
+                        {trackedResult.status === "Submitted" && "Your report has been received and is waiting in the queue."}
+                        {trackedResult.status === "Pending" && "A barangay official is currently reviewing your submission."}
+                        {trackedResult.status === "Viewed" && "Your report has been viewed by authorities and action is being planned."}
+                        {trackedResult.status === "Resolved" && "This issue has been successfully resolved. Thank you for keeping our community clean!"}
+                      </p>
+                    </div>
+
+                  </div>
+                )}
               </div>
             </div>
           )}
