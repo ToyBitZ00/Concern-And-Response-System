@@ -10,6 +10,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,30 +18,50 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!email || !password) return;
 
     setLoading(true);
+    setErrorMsg(null);
 
-    // Connect your Supabase authentication here.
-    // Example:
-    //
-    // const { data, error } = await supabase.auth.signInWithPassword({
-    //   email,
-    //   password,
-    // });
+    const supabase = createClient();
 
-    console.log("Login attempt:", {
-      email,
-      password,
-    });
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({ email, password });
 
-    // Temporary loading state
-    setTimeout(() => {
+    if (authError) {
+      setErrorMsg("Invalid email or password. Please try again.");
       setLoading(false);
-    }, 1000);
+      return;
+    }
+
+    const userId = authData.user.id;
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      setErrorMsg("We couldn't verify your account role. Contact a system administrator.");
+      setLoading(false);
+      return;
+    }
+
+    if (profile.role === "superadmin") {
+      window.location.href = "/superadmin";
+    } else if (profile.role === "admin") {
+      window.location.href = "/admin";
+    } else {
+      // resident or unrecognized role tried to log in here
+      setErrorMsg("This account does not have staff access.");
+      await supabase.auth.signOut();
+      setLoading(false);
+    }
   };
 
   return (
@@ -269,6 +290,12 @@ export default function AdminLoginPage() {
                   <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-gray-950 sm:text-4xl">
                     Welcome back.
                   </h1>
+
+                  {errorMsg && (
+                    <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
+                      {errorMsg}
+                    </div>
+                  )}
 
                   <p className="mt-3 text-sm leading-6 text-gray-500">
                     Sign in to manage community reports and help keep

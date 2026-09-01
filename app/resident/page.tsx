@@ -15,13 +15,18 @@ import {
   X,
 } from "lucide-react";
 
+type PhotoData = {
+  file: File;
+  preview: string;
+};
+
 export default function ReportPage() {
   const [reportType, setReportType] = useState("Clogged Drainage");
   const [activeTab, setActiveTab] = useState("new");
-  const [photo, setPhoto] = useState(null);
+  const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [description, setDescription] = useState("");
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
     if (file) {
@@ -40,7 +45,7 @@ export default function ReportPage() {
     setPhoto(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     // Connect your Supabase/API submission here.
