@@ -1,15 +1,26 @@
 'use client';
 
+import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Activity,
   ArrowUpRight,
+  ArrowUpDown,
   BarChart3,
   Calendar,
   CheckCircle2,
   ChevronDown,
   Clock,
   FileText,
+  ImageIcon,
+  LogOut,
+  Mail,
+  MapPin,
+  Phone,
+  Save,
+  Search,
+  Settings,
   Sparkles,
   Users,
   UserCheck,
@@ -34,33 +45,55 @@ import {
    TYPES
 ========================================================= */
 
-type ReportStatus =
-  | 'Pending'
-  | 'Under Review'
-  | 'Resolved'
-  | 'Rejected';
+type ReportStatus = 'Pending' | 'Resolved' | 'Blocked';
 
-type ResidentStatus = 'Verified' | 'Unverified';
+type ResidentStatus = 'Verified' | 'Unverified' | 'Blocked';
 
 type AdminSection = 'overview' | 'reports' | 'residents';
+type AnalyticsRange = 'Month' | 'Week' | 'Year';
+type ResidentSort =
+  | 'Newest to Oldest'
+  | 'Verified First'
+  | 'Unverified First'
+  | 'Blocked First';
 
 type Report = {
   id: string;
   reference: string;
   resident: string;
   category: string;
+  description: string;
   location: string;
+  purok: string;
+  sitio: string;
+  street: string;
+  landmark: string;
   status: ReportStatus;
   date: string;
+  createdAt: string;
+  resolvedAt?: string;
 };
 
 type Resident = {
   id: string;
   name: string;
+  email: string;
+  phoneNumber: string;
   age: number;
   purok: string;
   status: ResidentStatus;
   joined: string;
+};
+
+type AdminProfile = {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  address: string;
+  purok: string;
+  street: string;
+  age: string;
+  role: string;
 };
 
 /* =========================================================
@@ -73,90 +106,153 @@ const REPORTS: Report[] = [
     reference: 'ECO-2026-0001',
     resident: 'Juan Dela Cruz',
     category: 'Clogged Drainage',
+    description: 'Drainage canal is blocked by mixed household waste after heavy rain.',
     location: 'Purok 2',
+    purok: 'Purok 2',
+    sitio: 'Sitio Riverside',
+    street: 'Riverside Street',
+    landmark: 'Near Barangay Chapel',
     status: 'Resolved',
     date: 'Aug 30, 2026',
+    createdAt: 'Aug 30, 2026, 8:30 AM',
+    resolvedAt: 'Aug 31, 2026, 2:15 PM',
   },
   {
     id: '2',
     reference: 'ECO-2026-0002',
     resident: 'Maria Santos',
     category: 'Illegal Dumping',
+    description: 'Sacks of garbage were dumped beside the road overnight.',
     location: 'Purok 4',
-    status: 'Under Review',
+    purok: 'Purok 4',
+    sitio: 'Sitio Maligaya',
+    street: 'Mabini Street',
+    landmark: 'Beside waiting shed',
+    status: 'Pending',
     date: 'Aug 30, 2026',
+    createdAt: 'Aug 30, 2026, 10:05 AM',
   },
   {
     id: '3',
     reference: 'ECO-2026-0003',
     resident: 'Pedro Garcia',
     category: 'Uncollected Trash',
+    description: 'Scheduled collection was missed and trash bags are blocking the sidewalk.',
     location: 'Purok 1',
+    purok: 'Purok 1',
+    sitio: 'Sitio Centro',
+    street: 'Rizal Street',
+    landmark: 'Across sari-sari store',
     status: 'Pending',
     date: 'Aug 29, 2026',
+    createdAt: 'Aug 29, 2026, 4:40 PM',
   },
   {
     id: '4',
     reference: 'ECO-2026-0004',
     resident: 'Ana Reyes',
     category: 'Clogged Drainage',
+    description: 'Water is not flowing through the drainage line near residential houses.',
     location: 'Purok 3',
+    purok: 'Purok 3',
+    sitio: 'Sitio Masagana',
+    street: 'Bonifacio Street',
+    landmark: 'In front of daycare center',
     status: 'Resolved',
     date: 'Aug 28, 2026',
+    createdAt: 'Aug 28, 2026, 9:10 AM',
+    resolvedAt: 'Aug 29, 2026, 11:30 AM',
   },
   {
     id: '5',
     reference: 'ECO-2026-0005',
     resident: 'Carlos Mendoza',
     category: 'Illegal Dumping',
+    description: 'Report photo showed construction debris, but location could not be confirmed.',
     location: 'Purok 5',
-    status: 'Rejected',
+    purok: 'Purok 5',
+    sitio: 'Sitio San Isidro',
+    street: 'Del Pilar Street',
+    landmark: 'Vacant lot near water pump',
+    status: 'Blocked',
     date: 'Aug 27, 2026',
+    createdAt: 'Aug 27, 2026, 6:25 PM',
   },
   {
     id: '6',
     reference: 'ECO-2026-0006',
     resident: 'Liza Flores',
     category: 'Uncollected Trash',
+    description: 'Overflowing bins need follow-up collection from the sanitation team.',
     location: 'Purok 2',
-    status: 'Under Review',
+    purok: 'Purok 2',
+    sitio: 'Sitio Riverside',
+    street: 'A. Luna Street',
+    landmark: 'Barangay covered court',
+    status: 'Pending',
     date: 'Aug 26, 2026',
+    createdAt: 'Aug 26, 2026, 7:50 AM',
   },
   {
     id: '7',
     reference: 'ECO-2026-0007',
     resident: 'Mark Bautista',
     category: 'Clogged Drainage',
+    description: 'Drainage opening is covered with leaves and plastic bottles.',
     location: 'Purok 1',
+    purok: 'Purok 1',
+    sitio: 'Sitio Centro',
+    street: 'Quezon Street',
+    landmark: 'Beside elementary school',
     status: 'Pending',
     date: 'Aug 25, 2026',
+    createdAt: 'Aug 25, 2026, 1:20 PM',
   },
   {
     id: '8',
     reference: 'ECO-2026-0008',
     resident: 'Sofia Navarro',
     category: 'Illegal Dumping',
+    description: 'Repeated dumping of plastic waste along the corner road.',
     location: 'Purok 4',
+    purok: 'Purok 4',
+    sitio: 'Sitio Maligaya',
+    street: 'Mabini Street',
+    landmark: 'Near basketball court',
     status: 'Resolved',
     date: 'Aug 24, 2026',
+    createdAt: 'Aug 24, 2026, 3:15 PM',
+    resolvedAt: 'Aug 25, 2026, 9:45 AM',
   },
   {
     id: '9',
     reference: 'ECO-2026-0009',
     resident: 'Ramon Cruz',
     category: 'Uncollected Trash',
+    description: 'Duplicate report for a collection issue already handled by sanitation.',
     location: 'Purok 3',
-    status: 'Rejected',
+    purok: 'Purok 3',
+    sitio: 'Sitio Masagana',
+    street: 'Bonifacio Street',
+    landmark: 'Near health station',
+    status: 'Blocked',
     date: 'Aug 23, 2026',
+    createdAt: 'Aug 23, 2026, 5:35 PM',
   },
   {
     id: '10',
     reference: 'ECO-2026-0010',
     resident: 'Grace Aquino',
     category: 'Clogged Drainage',
+    description: 'Residents reported foul smell from stagnant water in the drainage canal.',
     location: 'Purok 5',
-    status: 'Under Review',
+    purok: 'Purok 5',
+    sitio: 'Sitio San Isidro',
+    street: 'Del Pilar Street',
+    landmark: 'Behind public market',
+    status: 'Pending',
     date: 'Aug 22, 2026',
+    createdAt: 'Aug 22, 2026, 8:05 AM',
   },
 ];
 
@@ -164,6 +260,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '1',
     name: 'Juan Dela Cruz',
+    email: 'juan.delacruz@example.com',
+    phoneNumber: '0917 100 0001',
     age: 34,
     purok: 'Purok 2',
     status: 'Verified',
@@ -172,6 +270,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '2',
     name: 'Maria Santos',
+    email: 'maria.santos@example.com',
+    phoneNumber: '0917 100 0002',
     age: 28,
     purok: 'Purok 4',
     status: 'Verified',
@@ -180,6 +280,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '3',
     name: 'Pedro Garcia',
+    email: 'pedro.garcia@example.com',
+    phoneNumber: '0917 100 0003',
     age: 42,
     purok: 'Purok 1',
     status: 'Unverified',
@@ -188,6 +290,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '4',
     name: 'Ana Reyes',
+    email: 'ana.reyes@example.com',
+    phoneNumber: '0917 100 0004',
     age: 31,
     purok: 'Purok 3',
     status: 'Verified',
@@ -196,14 +300,18 @@ const RESIDENTS: Resident[] = [
   {
     id: '5',
     name: 'Carlos Mendoza',
+    email: 'carlos.mendoza@example.com',
+    phoneNumber: '0917 100 0005',
     age: 39,
     purok: 'Purok 5',
-    status: 'Unverified',
+    status: 'Blocked',
     joined: 'Aug 8, 2026',
   },
   {
     id: '6',
     name: 'Liza Flores',
+    email: 'liza.flores@example.com',
+    phoneNumber: '0917 100 0006',
     age: 26,
     purok: 'Purok 2',
     status: 'Verified',
@@ -212,6 +320,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '7',
     name: 'Mark Bautista',
+    email: 'mark.bautista@example.com',
+    phoneNumber: '0917 100 0007',
     age: 36,
     purok: 'Purok 1',
     status: 'Verified',
@@ -220,6 +330,8 @@ const RESIDENTS: Resident[] = [
   {
     id: '8',
     name: 'Sofia Navarro',
+    email: 'sofia.navarro@example.com',
+    phoneNumber: '0917 100 0008',
     age: 24,
     purok: 'Purok 4',
     status: 'Unverified',
@@ -231,21 +343,55 @@ const RESIDENTS: Resident[] = [
    CHART DATA
 ========================================================= */
 
-const MONTHLY_REPORTS = [
-  { month: 'Mar', reports: 8 },
-  { month: 'Apr', reports: 12 },
-  { month: 'May', reports: 18 },
-  { month: 'Jun', reports: 15 },
-  { month: 'Jul', reports: 23 },
-  { month: 'Aug', reports: 31 },
-];
+const MONTHLY_REPORT_COUNTS = [6, 9, 11, 8, 12, 18, 15, 23, 31, 27, 34, 29];
+const WEEKLY_REPORT_COUNTS = [5, 7, 6, 9, 4, 8, 10];
+const YEARLY_REPORT_COUNTS = [84, 96, 112, 128, 147, 161];
 
-const STATUS_COLORS = {
-  Pending: '#f59e0b',
-  'Under Review': '#3b82f6',
-  Resolved: '#10b981',
-  Rejected: '#ef4444',
+const STATUS_GRADIENTS = {
+  Pending: {
+    from: '#fbbf24',
+    to: '#d97706',
+  },
+  Resolved: {
+    from: '#34d399',
+    to: '#059669',
+  },
+  Blocked: {
+    from: '#fb7185',
+    to: '#dc2626',
+  },
 };
+
+const PAGE_SIZE = 10;
+
+const DEFAULT_ADMIN_PROFILE: AdminProfile = {
+  fullName: 'Barangay Official',
+  email: 'official@barangca.gov.ph',
+  phoneNumber: '0917 555 0188',
+  address: 'Barangay Barangca, Candaba, Pampanga',
+  purok: 'Purok 2',
+  street: 'Municipal Road',
+  age: '38',
+  role: 'System Administrator',
+};
+
+const ADMIN_NAV_ITEMS = [
+  {
+    section: 'overview',
+    label: 'Dashboard',
+    icon: BarChart3,
+  },
+  {
+    section: 'reports',
+    label: 'Reports',
+    icon: FileText,
+  },
+  {
+    section: 'residents',
+    label: 'Accounts',
+    icon: Users,
+  },
+] as const;
 
 /* =========================================================
    HELPERS
@@ -259,21 +405,12 @@ function statusClass(status: ReportStatus) {
     case 'Pending':
       return 'bg-amber-50 text-amber-700 border-amber-100';
 
-    case 'Under Review':
-      return 'bg-blue-50 text-blue-700 border-blue-100';
-
-    case 'Rejected':
+    case 'Blocked':
       return 'bg-red-50 text-red-700 border-red-100';
 
     default:
       return 'bg-slate-50 text-slate-700 border-slate-100';
   }
-}
-
-function residentClass(status: ResidentStatus) {
-  return status === 'Verified'
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-    : 'bg-amber-50 text-amber-700 border-amber-100';
 }
 
 function initials(name: string) {
@@ -285,25 +422,133 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function buildAnalyticsReports(
+  range: AnalyticsRange,
+  currentDate: Date
+) {
+  if (range === 'Week') {
+    return WEEKLY_REPORT_COUNTS.map((reports, index) => ({
+      month: `Day ${index + 1}`,
+      reports,
+    }));
+  }
+
+  if (range === 'Year') {
+    return YEARLY_REPORT_COUNTS.map((reports, index) => ({
+      month: String(currentDate.getFullYear() - 5 + index),
+      reports,
+    }));
+  }
+
+  return MONTHLY_REPORT_COUNTS.map((reports, index) => {
+    const date = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() - 11 + index,
+      1
+    );
+
+    return {
+      month: date.toLocaleString('en-US', { month: 'short' }),
+      reports,
+    };
+  });
+}
+
+function ProfileInput({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+      />
+    </label>
+  );
+}
+
+function DetailField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | undefined;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-semibold text-slate-800">
+        {value || 'Not provided'}
+      </p>
+    </div>
+  );
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
 
 export default function Page() {
+  const router = useRouter();
+
   const [activeSection, setActiveSection] =
     useState<AdminSection>('overview');
 
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [resolvingReport, setResolvingReport] = useState<Report | null>(null);
+  const [verifyingResident, setVerifyingResident] =
+    useState<Resident | null>(null);
+  const [reports, setReports] = useState<Report[]>(REPORTS);
+  const [residents, setResidents] = useState<Resident[]>(RESIDENTS);
 
   const [reportFilter, setReportFilter] = useState<
     'All' | ReportStatus
   >('All');
+  const [reportSearch, setReportSearch] = useState('');
+  const [analyticsRange, setAnalyticsRange] =
+    useState<AnalyticsRange>('Month');
 
   const [residentFilter, setResidentFilter] = useState<
     'All' | ResidentStatus
   >('All');
+  const [residentSort, setResidentSort] =
+    useState<ResidentSort>('Verified First');
+
+  const [reportPage, setReportPage] = useState(1);
+  const [residentPage, setResidentPage] = useState(1);
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [adminProfile, setAdminProfile] =
+    useState<AdminProfile>(DEFAULT_ADMIN_PROFILE);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState('');
 
   const [showNotification, setShowNotification] = useState(false);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
 
   useEffect(() => {
     const syncSectionFromHash = () => {
@@ -324,6 +569,16 @@ export default function Page() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const showAdminSection = (section: AdminSection) => {
     setActiveSection(section);
 
@@ -333,7 +588,165 @@ export default function Page() {
       residents: '#residents',
     };
 
-    window.history.replaceState(null, '', `/ensci4${hashBySection[section]}`);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${hashBySection[section]}`
+    );
+  };
+
+  const changeReportFilter = (filter: typeof reportFilter) => {
+    setReportFilter(filter);
+    setReportPage(1);
+    setExpandedReport(null);
+  };
+
+  const changeReportSearch = (value: string) => {
+    setReportSearch(value);
+    setReportPage(1);
+    setExpandedReport(null);
+  };
+
+  const changeResidentFilter = (filter: typeof residentFilter) => {
+    setResidentFilter(filter);
+    setResidentPage(1);
+  };
+
+  const changeResidentSort = (sort: ResidentSort) => {
+    setResidentSort(sort);
+    setResidentPage(1);
+  };
+
+  const resolveReport = (reportId: string) => {
+    const resolvedAt = new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    setReports((currentReports) =>
+      currentReports.map((report) =>
+        report.id === reportId
+          ? {
+              ...report,
+              status: 'Resolved',
+              resolvedAt,
+            }
+          : report
+      )
+    );
+    setExpandedReport(null);
+    setSelectedReport((report) =>
+      report?.id === reportId
+        ? {
+            ...report,
+            status: 'Resolved',
+            resolvedAt,
+          }
+        : report
+    );
+    setShowNotification(true);
+  };
+
+  const confirmResolveReport = () => {
+    if (!resolvingReport) return;
+
+    resolveReport(resolvingReport.id);
+    setResolvingReport(null);
+  };
+
+  const blockResident = (resident: Resident) => {
+    setResidents((currentResidents) =>
+      currentResidents.map((item) =>
+        item.id === resident.id
+          ? {
+              ...item,
+              status: 'Blocked',
+            }
+          : item
+      )
+    );
+
+    setReports((currentReports) =>
+      currentReports.map((report) =>
+        report.resident === resident.name
+          ? {
+              ...report,
+              status: 'Blocked',
+              resolvedAt: undefined,
+            }
+          : report
+      )
+    );
+
+    setSelectedReport((report) =>
+      report?.resident === resident.name
+        ? {
+            ...report,
+            status: 'Blocked',
+            resolvedAt: undefined,
+          }
+        : report
+    );
+    setShowNotification(true);
+  };
+
+  const confirmResidentVerification = () => {
+    if (!verifyingResident) return;
+
+    setResidents((currentResidents) =>
+      currentResidents.map((resident) =>
+        resident.id === verifyingResident.id
+          ? {
+              ...resident,
+              status: 'Verified',
+            }
+          : resident
+      )
+    );
+    setVerifyingResident(null);
+    setShowNotification(true);
+  };
+
+  const updateProfileField = (
+    field: keyof AdminProfile,
+    value: string
+  ) => {
+    setAdminProfile((profile) => ({
+      ...profile,
+      [field]: value,
+    }));
+  };
+
+  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProfileModalOpen(false);
+    setShowNotification(true);
+  };
+
+  const savePassword = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    setPasswordError('');
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setSettingsModalOpen(false);
+    setShowNotification(true);
+  };
+
+  const signOut = () => {
+    setProfileMenuOpen(false);
+    router.push('/login');
   };
 
   /* =========================================================
@@ -342,22 +755,21 @@ export default function Page() {
 
   const reportStats = useMemo(() => {
     return {
-      total: REPORTS.length,
-      pending: REPORTS.filter(
-        (r) => r.status === 'Pending' || r.status === 'Under Review'
-      ).length,
-      resolved: REPORTS.filter((r) => r.status === 'Resolved').length,
-      rejected: REPORTS.filter((r) => r.status === 'Rejected').length,
+      total: reports.length,
+      pending: reports.filter((r) => r.status === 'Pending').length,
+      resolved: reports.filter((r) => r.status === 'Resolved').length,
+      blocked: reports.filter((r) => r.status === 'Blocked').length,
     };
-  }, []);
+  }, [reports]);
 
   const residentStats = useMemo(() => {
     return {
-      total: RESIDENTS.length,
-      verified: RESIDENTS.filter((r) => r.status === 'Verified').length,
-      unverified: RESIDENTS.filter((r) => r.status === 'Unverified').length,
+      total: residents.length,
+      verified: residents.filter((r) => r.status === 'Verified').length,
+      unverified: residents.filter((r) => r.status === 'Unverified').length,
+      blocked: residents.filter((r) => r.status === 'Blocked').length,
     };
-  }, []);
+  }, [residents]);
 
   const donutData = useMemo(
     () => [
@@ -370,169 +782,271 @@ export default function Page() {
         value: reportStats.resolved,
       },
       {
-        name: 'Rejected',
-        value: reportStats.rejected,
+        name: 'Blocked',
+        value: reportStats.blocked,
       },
     ],
     [reportStats]
   );
 
-  const filteredReports = useMemo(() => {
-    if (reportFilter === 'All') return REPORTS;
+  const monthlyReports = useMemo(
+    () => buildAnalyticsReports(analyticsRange, currentDate),
+    [analyticsRange, currentDate]
+  );
 
-    return REPORTS.filter(
-      (report) => report.status === reportFilter
+  const currentPeriodLabel = useMemo(
+    () =>
+      currentDate.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      }),
+    [currentDate]
+  );
+
+  const filteredReports = useMemo(() => {
+    const statusFilteredReports =
+      reportFilter === 'All'
+        ? reports
+        : reports.filter((report) => report.status === reportFilter);
+
+    const searchText = reportSearch.trim().toLowerCase();
+
+    if (!searchText) return statusFilteredReports;
+
+    return statusFilteredReports.filter((report) =>
+      [
+        report.reference,
+        report.resident,
+        report.category,
+        report.description,
+        report.location,
+        report.purok,
+        report.sitio,
+        report.street,
+        report.landmark,
+        report.status,
+        report.date,
+        report.createdAt,
+        report.resolvedAt ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(searchText)
     );
-  }, [reportFilter]);
+  }, [reportFilter, reportSearch, reports]);
+
+  const totalReportPages = Math.max(
+    1,
+    Math.ceil(filteredReports.length / PAGE_SIZE)
+  );
+
+  const visibleReports = useMemo(() => {
+    const start = (reportPage - 1) * PAGE_SIZE;
+
+    return filteredReports.slice(start, start + PAGE_SIZE);
+  }, [filteredReports, reportPage]);
+
+  const reportStart = filteredReports.length
+    ? (reportPage - 1) * PAGE_SIZE + 1
+    : 0;
+
+  const reportEnd = Math.min(
+    reportPage * PAGE_SIZE,
+    filteredReports.length
+  );
 
   const filteredResidents = useMemo(() => {
-    if (residentFilter === 'All') return RESIDENTS;
+    const statusFilteredResidents =
+      residentFilter === 'All'
+        ? residents
+        : residents.filter((resident) => resident.status === residentFilter);
 
-    return RESIDENTS.filter(
-      (resident) => resident.status === residentFilter
-    );
-  }, [residentFilter]);
+    return [...statusFilteredResidents].sort((a, b) => {
+      if (residentSort === 'Verified First') {
+        return Number(b.status === 'Verified') - Number(a.status === 'Verified');
+      }
+
+      if (residentSort === 'Unverified First') {
+        return Number(b.status === 'Unverified') - Number(a.status === 'Unverified');
+      }
+
+                  if (residentSort === 'Blocked First') {
+                    return Number(b.status === 'Blocked') - Number(a.status === 'Blocked');
+                  }
+
+                  return Number(b.id) - Number(a.id);
+    });
+  }, [residentFilter, residentSort, residents]);
+
+  const totalResidentPages = Math.max(
+    1,
+    Math.ceil(filteredResidents.length / PAGE_SIZE)
+  );
+
+  const visibleResidents = useMemo(() => {
+    const start = (residentPage - 1) * PAGE_SIZE;
+
+    return filteredResidents.slice(start, start + PAGE_SIZE);
+  }, [filteredResidents, residentPage]);
+
+  const residentStart = filteredResidents.length
+    ? (residentPage - 1) * PAGE_SIZE + 1
+    : 0;
+
+  const residentEnd = Math.min(
+    residentPage * PAGE_SIZE,
+    filteredResidents.length
+  );
 
   /* =========================================================
      RENDER
   ========================================================= */
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#F6FBF8] font-sans text-slate-900">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#eef4f0] font-sans text-slate-900">
       {/* =====================================================
           BACKGROUND
       ====================================================== */}
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[420px] w-[420px] rounded-full bg-emerald-400/10 blur-3xl animate-pulse" />
+        <div className="absolute -left-40 -top-40 h-[420px] w-[420px] rounded-full bg-emerald-400/10 blur-3xl" />
 
-        <div
-          className="absolute -bottom-48 -right-40 h-[500px] w-[500px] rounded-full bg-green-400/10 blur-3xl animate-pulse"
-          style={{ animationDelay: '1.5s' }}
-        />
-
-        <div
-          className="absolute right-1/4 top-1/3 h-72 w-72 rounded-full bg-emerald-300/5 blur-3xl animate-pulse"
-          style={{ animationDelay: '3s' }}
-        />
+        <div className="absolute -bottom-48 -right-40 h-[500px] w-[500px] rounded-full bg-green-400/10 blur-3xl" />
       </div>
-
-      {/* GRID */}
-
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.25]"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, #d1d5db 1px, transparent 1px),
-            linear-gradient(to bottom, #d1d5db 1px, transparent 1px)
-          `,
-          backgroundSize: '48px 48px',
-          maskImage:
-            'linear-gradient(to bottom, transparent, black 20%, black 80%, transparent)',
-          WebkitMaskImage:
-            'linear-gradient(to bottom, transparent, black 20%, black 80%, transparent)',
-        }}
-      />
 
       {/* =====================================================
           HEADER
       ====================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-emerald-100/70 bg-white/90 shadow-sm shadow-emerald-950/5 backdrop-blur-xl">
 
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center px-6 lg:px-8">
+        <div className="mx-auto flex min-h-[76px] max-w-7xl flex-col gap-3 px-5 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
 
           {/* LOGO */}
-          <button type="button" onClick={() => showAdminSection('overview')} className="group flex items-center gap-2.5">
+          <button type="button" onClick={() => showAdminSection('overview')} className="group flex items-center gap-3 self-start lg:self-auto">
 
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm shadow-emerald-900/20 transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
               <Sparkles className="h-4 w-4" />
             </div>
 
-            <div className="leading-none">
-              <span className="text-lg font-bold tracking-tight text-gray-950">
+            <div className="text-left leading-none">
+              <span className="block text-lg font-bold tracking-tight text-gray-950">
                 eConcern
               </span>
 
-              <span className="ml-1 text-[9px] font-bold uppercase tracking-[0.15em] text-[#00A859]">
-                Barangay
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.15em] text-[#00A859]">
+                Barangay Admin
               </span>
             </div>
 
           </button>
 
           {/* RIGHT NAV */}
-          <div className="ml-auto flex items-center gap-5 lg:gap-8">
+          <div className="flex w-full items-center gap-4 lg:ml-auto lg:w-auto lg:gap-8">
 
-            <nav className="hidden items-center gap-6 lg:flex">
+            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl border border-emerald-100 bg-white/70 p-1 shadow-inner lg:flex-none">
+              {ADMIN_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const selected = activeSection === item.section;
 
-            <button
-              type="button"
-              onClick={() => showAdminSection('overview')}
-              className={`relative py-2 text-sm transition ${
-                activeSection === 'overview'
-                  ? 'font-semibold text-gray-950'
-                  : 'font-medium text-gray-500 hover:text-gray-950'
-              }`}
-            >
-              Dashboard
-
-              {activeSection === 'overview' && (
-                <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => showAdminSection('reports')}
-              className={`relative py-2 text-sm transition ${
-                activeSection === 'reports'
-                  ? 'font-semibold text-gray-950'
-                  : 'font-medium text-gray-500 hover:text-gray-950'
-              }`}
-            >
-              Reports
-
-              {activeSection === 'reports' && (
-                <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => showAdminSection('residents')}
-              className={`relative py-2 text-sm transition ${
-                activeSection === 'residents'
-                  ? 'font-semibold text-gray-950'
-                  : 'font-medium text-gray-500 hover:text-gray-950'
-              }`}
-            >
-              Resident Accounts
-
-              {activeSection === 'residents' && (
-                <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-[#00A859]" />
-              )}
-            </button>
-
+                return (
+                  <button
+                    key={item.section}
+                    type="button"
+                    onClick={() => showAdminSection(item.section)}
+                    className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition sm:px-4 ${
+                      selected
+                        ? 'bg-[#00A859] text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-white/80 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="hidden h-7 w-px bg-gray-200 lg:block" />
 
-            <div className="hidden items-center gap-3 sm:flex">
+            <div className="relative block shrink-0">
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-[#00A859]">
-                <UserRound className="h-4 w-4" />
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setProfileMenuOpen((isOpen) => !isOpen)
+                }
+                className="flex items-center gap-2 rounded-xl px-1.5 py-1.5 transition hover:bg-white/80 sm:gap-3 sm:px-2"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#00A859] ring-1 ring-emerald-100 sm:h-9 sm:w-9">
+                  <UserRound className="h-4 w-4" />
+                </div>
 
-              <div className="hidden xl:block">
-                <p className="text-xs font-bold text-gray-900">
-                  Barangay Official
-                </p>
+                <div className="hidden text-left lg:block">
+                  <p className="text-xs font-bold text-gray-900">
+                    {adminProfile.fullName}
+                  </p>
 
-                <p className="text-[10px] text-gray-400">
-                  System Administrator
-                </p>
-              </div>
+                  <p className="text-[10px] text-gray-400">
+                    {adminProfile.role}
+                  </p>
+                </div>
+
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform ${
+                    profileMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-12 z-[80] w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+                  <div className="border-b border-slate-100 bg-emerald-50/60 px-4 py-4">
+                    <p className="text-sm font-bold text-slate-950">
+                      {adminProfile.fullName}
+                    </p>
+
+                    <p className="mt-1 truncate text-xs text-slate-400">
+                      {adminProfile.email}
+                    </p>
+                  </div>
+
+                  <div className="p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setProfileModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-[#008F4B]"
+                    >
+                      <UserRound className="h-4 w-4" />
+                      View Profile
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setSettingsModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-[#008F4B]"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={signOut}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-500 transition hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
 
@@ -545,7 +1059,7 @@ export default function Page() {
           MAIN
       ====================================================== */}
 
-      <main className="relative z-10 mx-auto max-w-7xl px-5 pb-20 pt-10 sm:px-6 lg:px-8">
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 pb-16 pt-7 sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
         {/* ===================================================
             PAGE HEADER
         ==================================================== */}
@@ -570,11 +1084,11 @@ export default function Page() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-white/80 px-4 py-2.5 shadow-sm backdrop-blur-xl">
+          <div className="flex w-fit items-center gap-2 rounded-xl border border-emerald-100 bg-white/80 px-4 py-2.5 shadow-sm backdrop-blur-xl">
             <Calendar className="h-4 w-4 text-[#00A859]" />
 
             <span className="text-xs font-bold text-slate-600">
-              August 2026
+              {currentPeriodLabel}
             </span>
 
             <span className="h-1 w-1 rounded-full bg-emerald-400" />
@@ -594,7 +1108,10 @@ export default function Page() {
 
           <button
             type="button"
-            onClick={() => setActiveSection('reports')}
+            onClick={() => {
+              changeReportFilter('All');
+              showAdminSection('reports');
+            }}
             className="group animate-fade-up rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5"
           >
             <div className="flex items-center justify-between">
@@ -623,8 +1140,8 @@ export default function Page() {
           <button
             type="button"
             onClick={() => {
-              setReportFilter('Pending');
-              setActiveSection('reports');
+              changeReportFilter('Pending');
+              showAdminSection('reports');
             }}
             className="group animate-fade-up delay-100 rounded-2xl border border-amber-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(100,70,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl"
           >
@@ -654,8 +1171,8 @@ export default function Page() {
           <button
             type="button"
             onClick={() => {
-              setReportFilter('Resolved');
-              setActiveSection('reports');
+              changeReportFilter('Resolved');
+              showAdminSection('reports');
             }}
             className="group animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
@@ -685,8 +1202,8 @@ export default function Page() {
           <button
             type="button"
             onClick={() => {
-              setResidentFilter('Verified');
-              setActiveSection('residents');
+              changeResidentFilter('Verified');
+              showAdminSection('residents');
             }}
             className="group animate-fade-up delay-300 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
@@ -716,8 +1233,8 @@ export default function Page() {
           <button
             type="button"
             onClick={() => {
-              setResidentFilter('Unverified');
-              setActiveSection('residents');
+              changeResidentFilter('Unverified');
+              showAdminSection('residents');
             }}
             className="group animate-fade-up delay-400 rounded-2xl border border-emerald-100 bg-white/95 p-5 text-left shadow-[0_4px_20px_rgba(0,100,60,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
           >
@@ -756,7 +1273,7 @@ export default function Page() {
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
               {/* BAR GRAPH */}
 
-              <div className="animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-6 shadow-[0_4px_20px_rgba(0,100,60,0.04)] lg:col-span-8 md:p-8">
+              <div className="animate-fade-up delay-200 rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-8 md:p-8">
                 <div className="mb-7 flex items-start justify-between">
                   <div>
                     <div className="mb-1 flex items-center gap-2">
@@ -772,19 +1289,32 @@ export default function Page() {
                     </h2>
 
                     <p className="mt-1 text-xs text-slate-400">
-                      Number of environmental reports received each month.
+                      Number of environmental reports received by selected period.
                     </p>
                   </div>
 
-                  <div className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-[#008F4B]">
-                    6 Months
+                  <div className="flex shrink-0 gap-1 rounded-xl border border-slate-200 bg-white p-1">
+                    {(['Week', 'Month', 'Year'] as const).map((range) => (
+                      <button
+                        key={range}
+                        type="button"
+                        onClick={() => setAnalyticsRange(range)}
+                        className={`h-8 rounded-lg px-3 text-[10px] font-bold transition ${
+                          analyticsRange === range
+                            ? 'bg-[#00A859] text-white shadow-sm'
+                            : 'text-slate-500 hover:bg-emerald-50 hover:text-[#008F4B]'
+                        }`}
+                      >
+                        {range}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={MONTHLY_REPORTS}
+                      data={monthlyReports}
                       margin={{
                         top: 10,
                         right: 10,
@@ -792,6 +1322,25 @@ export default function Page() {
                         bottom: 0,
                       }}
                     >
+                      <defs>
+                        <linearGradient
+                          id="reportsBarGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#34d399"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#008F4B"
+                          />
+                        </linearGradient>
+                      </defs>
+
                       <CartesianGrid
                         strokeDasharray="4 4"
                         vertical={false}
@@ -836,7 +1385,7 @@ export default function Page() {
 
                       <Bar
                         dataKey="reports"
-                        fill="#00A859"
+                        fill="url(#reportsBarGradient)"
                         radius={[7, 7, 0, 0]}
                         barSize={42}
                         animationDuration={1200}
@@ -849,7 +1398,7 @@ export default function Page() {
 
               {/* DONUT GRAPH */}
 
-              <div className="animate-fade-up delay-300 flex flex-col rounded-2xl border border-emerald-100 bg-white/95 p-6 shadow-[0_4px_20px_rgba(0,100,60,0.04)] lg:col-span-4 md:p-8">
+              <div className="animate-fade-up delay-300 flex flex-col rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-[0_4px_20px_rgba(0,100,60,0.04)] sm:p-6 lg:col-span-4 md:p-8">
                 <div className="mb-3">
                   <div className="mb-1 flex items-center gap-2">
                     <Activity className="h-4 w-4 text-[#00A859]" />
@@ -871,6 +1420,38 @@ export default function Page() {
                 <div className="relative flex min-h-[300px] flex-1 items-center justify-center">
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
+                      <defs>
+                        {donutData.map((entry) => {
+                          const gradient =
+                            STATUS_GRADIENTS[
+                              entry.name as keyof typeof STATUS_GRADIENTS
+                            ];
+
+                          return (
+                            <linearGradient
+                              key={entry.name}
+                              id={`statusGradient-${entry.name.replace(
+                                /\s+/g,
+                                '-'
+                              )}`}
+                              x1="0"
+                              y1="0"
+                              x2="1"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor={gradient.from}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={gradient.to}
+                              />
+                            </linearGradient>
+                          );
+                        })}
+                      </defs>
+
                       <Pie
                         data={donutData}
                         cx="50%"
@@ -887,11 +1468,10 @@ export default function Page() {
                         {donutData.map((entry) => (
                           <Cell
                             key={entry.name}
-                            fill={
-                              STATUS_COLORS[
-                                entry.name as keyof typeof STATUS_COLORS
-                              ]
-                            }
+                            fill={`url(#statusGradient-${entry.name.replace(
+                              /\s+/g,
+                              '-'
+                            )})`}
                           />
                         ))}
                       </Pie>
@@ -933,10 +1513,15 @@ export default function Page() {
                         <span
                           className="h-2 w-2 rounded-full"
                           style={{
-                            backgroundColor:
-                              STATUS_COLORS[
-                                item.name as keyof typeof STATUS_COLORS
-                              ],
+                            backgroundImage: `linear-gradient(135deg, ${
+                              STATUS_GRADIENTS[
+                                item.name as keyof typeof STATUS_GRADIENTS
+                              ].from
+                            }, ${
+                              STATUS_GRADIENTS[
+                                item.name as keyof typeof STATUS_GRADIENTS
+                              ].to
+                            })`,
                           }}
                         />
 
@@ -959,7 +1544,7 @@ export default function Page() {
             ================================================== */}
 
             <div className="animate-fade-up delay-400 mt-5 overflow-hidden rounded-2xl border border-emerald-100 bg-white/95 shadow-[0_4px_20px_rgba(0,100,60,0.04)]">
-              <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 md:px-8">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
                     Latest Activity
@@ -973,7 +1558,7 @@ export default function Page() {
                 <button
                   type="button"
                   onClick={() => setActiveSection('reports')}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-[#008F4B] transition hover:bg-emerald-100"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-[#008F4B] transition hover:bg-emerald-100"
                 >
                   View All Reports
                   <ArrowUpRight className="h-3.5 w-3.5" />
@@ -981,10 +1566,10 @@ export default function Page() {
               </div>
 
               <div className="divide-y divide-slate-100">
-                {REPORTS.slice(0, 5).map((report) => (
+                {reports.slice(0, 5).map((report) => (
                   <div
                     key={report.id}
-                    className="flex flex-col gap-3 px-6 py-4 transition hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between md:px-8"
+                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between sm:px-6 md:px-8"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-[#00A859]">
@@ -1027,52 +1612,73 @@ export default function Page() {
         ==================================================== */}
 
         {activeSection === 'reports' && (
-          <div className="animate-fade-up rounded-2xl border border-emerald-100 bg-white/95 shadow-[0_4px_20px_rgba(0,100,60,0.04)]">
-            <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between md:px-8">
+          <div className="animate-fade-up overflow-hidden rounded-xl border border-emerald-100 bg-white/95 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+            <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between md:px-8">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
-                  Management
-                </p>
-
-                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                <h2 className="text-xl font-bold text-slate-950">
                   Environmental Reports
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Review and manage resident-submitted reports.
+                  {filteredReports.length} of {reports.length} reports shown
                 </p>
               </div>
 
-              {/* FILTER */}
+              <div className="flex w-full flex-col gap-3 md:w-auto md:items-end">
+                <div className="relative w-full md:w-80">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-              <div className="flex flex-wrap gap-2">
-                {[
-                  'All',
-                  'Pending',
-                  'Under Review',
-                  'Resolved',
-                  'Rejected',
-                ].map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() =>
-                      setReportFilter(filter as typeof reportFilter)
+                  <input
+                    type="text"
+                    value={reportSearch}
+                    onChange={(event) =>
+                      changeReportSearch(event.target.value)
                     }
-                    className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${
-                      reportFilter === filter
-                        ? 'bg-[#00A859] text-white'
-                        : 'bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-[#008F4B]'
-                    }`}
-                  >
-                    {filter}
-                  </button>
-                ))}
+                    placeholder="Search reports"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                  />
+
+                  {reportSearch && (
+                    <button
+                      type="button"
+                      onClick={() => changeReportSearch('')}
+                      className="absolute right-2 top-1/2 rounded-lg p-1 text-slate-300 transition -translate-y-1/2 hover:bg-slate-50 hover:text-slate-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* FILTER */}
+
+                <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1">
+                  {[
+                    'All',
+                    'Pending',
+                    'Resolved',
+                    'Blocked',
+                  ].map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() =>
+                        changeReportFilter(filter as typeof reportFilter)
+                      }
+                      className={`h-9 shrink-0 rounded-lg px-3 text-[11px] font-bold transition ${
+                        reportFilter === filter
+                          ? 'bg-[#00A859] text-white shadow-sm'
+                          : 'text-slate-500 hover:bg-emerald-50 hover:text-[#008F4B]'
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {filteredReports.map((report) => {
+            <div className="min-h-[460px] divide-y divide-slate-100">
+              {visibleReports.map((report) => {
                 const expanded = expandedReport === report.id;
 
                 return (
@@ -1084,7 +1690,7 @@ export default function Page() {
                           expanded ? null : report.id
                         )
                       }
-                      className="flex w-full flex-col gap-3 px-6 py-5 text-left transition hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between md:px-8"
+                      className="flex w-full flex-col gap-3 px-5 py-5 text-left transition hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between sm:px-6 md:px-8"
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-[#00A859]">
@@ -1124,7 +1730,7 @@ export default function Page() {
                     </button>
 
                     {expanded && (
-                      <div className="animate-fade-up border-t border-slate-100 bg-emerald-50/30 px-6 py-5 md:px-8">
+                      <div className="animate-fade-up border-t border-slate-100 bg-emerald-50/30 px-5 py-5 sm:px-6 md:px-8">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -1159,20 +1765,21 @@ export default function Page() {
 
                         <div className="mt-5 flex flex-wrap gap-2">
                           {report.status !== 'Resolved' &&
-                            report.status !== 'Rejected' && (
+                            report.status !== 'Blocked' && (
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setShowNotification(true)
+                                  setResolvingReport(report)
                                 }
                                 className="rounded-xl bg-[#00A859] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#008F4B]"
                               >
-                                Update Report
+                                Mark Resolved
                               </button>
                             )}
 
                           <button
                             type="button"
+                            onClick={() => setSelectedReport(report)}
                             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
                           >
                             View Details
@@ -1194,6 +1801,42 @@ export default function Page() {
                 </div>
               )}
             </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 md:px-8">
+              <p className="text-xs font-semibold text-slate-500">
+                Showing {reportStart}-{reportEnd} of {filteredReports.length}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReportPage((page) => Math.max(1, page - 1))
+                  }
+                  disabled={reportPage === 1}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                <span className="min-w-16 text-center text-xs font-bold text-slate-500">
+                  {reportPage}/{totalReportPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReportPage((page) =>
+                      Math.min(totalReportPages, page + 1)
+                    )
+                  }
+                  disabled={reportPage === totalReportPages}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1202,48 +1845,63 @@ export default function Page() {
         ==================================================== */}
 
         {activeSection === 'residents' && (
-          <div className="animate-fade-up rounded-2xl border border-emerald-100 bg-white/95 shadow-[0_4px_20px_rgba(0,100,60,0.04)]">
-            <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between md:px-8">
+          <div className="animate-fade-up overflow-hidden rounded-xl border border-emerald-100 bg-white/95 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+            <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/60 px-6 py-5 md:flex-row md:items-center md:justify-between md:px-8">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
-                  Resident Accounts
-                </p>
-
-                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                <h2 className="text-xl font-bold text-slate-950">
                   Resident Verification
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Review resident accounts and verification status.
+                  {filteredResidents.length} of {residents.length} accounts shown
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                {['All', 'Verified', 'Unverified'].map(
-                  (filter) => (
-                    <button
-                      key={filter}
-                      type="button"
-                      onClick={() =>
-                        setResidentFilter(
-                          filter as typeof residentFilter
-                        )
-                      }
-                      className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${
-                        residentFilter === filter
-                          ? 'bg-[#00A859] text-white'
-                          : 'bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-[#008F4B]'
-                      }`}
-                    >
-                      {filter}
-                    </button>
-                  )
-                )}
+              <div className="flex w-full max-w-full items-center gap-2 overflow-x-auto md:w-auto">
+                <div className="flex shrink-0 gap-1 rounded-xl border border-slate-200 bg-white p-1">
+                  {['All', 'Verified', 'Unverified', 'Blocked'].map(
+                    (filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() =>
+                          changeResidentFilter(
+                            filter as typeof residentFilter
+                          )
+                        }
+                        className={`h-9 shrink-0 rounded-lg px-3 text-[11px] font-bold transition ${
+                          residentFilter === filter
+                            ? 'bg-[#00A859] text-white shadow-sm'
+                            : 'text-slate-500 hover:bg-emerald-50 hover:text-[#008F4B]'
+                        }`}
+                      >
+                        {filter}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <ArrowUpDown className="h-4 w-4 shrink-0 text-slate-400" />
+
+                  <select
+                    value={residentSort}
+                    onChange={(event) =>
+                      changeResidentSort(event.target.value as ResidentSort)
+                    }
+                    className="h-6 bg-transparent text-xs font-bold text-slate-600 outline-none"
+                  >
+                    <option>Newest to Oldest</option>
+                    <option>Verified First</option>
+                    <option>Unverified First</option>
+                    <option>Blocked First</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {filteredResidents.map((resident) => (
+            <div className="min-h-[460px] divide-y divide-slate-100">
+              {visibleResidents.map((resident) => (
                 <div
                   key={resident.id}
                   className="flex flex-col gap-4 px-6 py-5 transition hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between md:px-8"
@@ -1254,9 +1912,18 @@ export default function Page() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-bold text-slate-900">
-                        {resident.name}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900">
+                          {resident.name}
+                        </p>
+
+                        {resident.status === 'Verified' && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Verified
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-0.5 text-xs text-slate-500">
                         Age {resident.age} · {resident.purok}
@@ -1269,19 +1936,11 @@ export default function Page() {
                       Joined {resident.joined}
                     </span>
 
-                    <span
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${residentClass(
-                        resident.status
-                      )}`}
-                    >
-                      {resident.status}
-                    </span>
-
                     {resident.status === 'Unverified' && (
                       <button
                         type="button"
                         onClick={() =>
-                          setShowNotification(true)
+                          setVerifyingResident(resident)
                         }
                         className="rounded-xl bg-[#00A859] px-4 py-2 text-[11px] font-bold text-white transition hover:bg-[#008F4B]"
                       >
@@ -1289,12 +1948,20 @@ export default function Page() {
                       </button>
                     )}
 
-                    {resident.status === 'Verified' && (
+                    {resident.status === 'Blocked' && (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-700">
+                        <X className="h-3.5 w-3.5" />
+                        Blocked
+                      </span>
+                    )}
+
+                    {resident.status !== 'Blocked' && (
                       <button
                         type="button"
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[11px] font-bold text-slate-500 transition hover:border-red-200 hover:text-red-600"
+                        onClick={() => blockResident(resident)}
+                        className="rounded-xl bg-red-800 px-4 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-red-900"
                       >
-                        Review
+                        Block
                       </button>
                     )}
                   </div>
@@ -1311,9 +1978,537 @@ export default function Page() {
                 </div>
               )}
             </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+              <p className="text-xs font-semibold text-slate-500">
+                Showing {residentStart}-{residentEnd} of {filteredResidents.length}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResidentPage((page) => Math.max(1, page - 1))
+                  }
+                  disabled={residentPage === 1}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                <span className="min-w-16 text-center text-xs font-bold text-slate-500">
+                  {residentPage}/{totalResidentPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResidentPage((page) =>
+                      Math.min(totalResidentPages, page + 1)
+                    )
+                  }
+                  disabled={residentPage === totalResidentPages}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
+
+      {/* =====================================================
+          RESOLVE CONFIRMATION MODAL
+      ====================================================== */}
+
+      {resolvingReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Confirm Update
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Mark this report as resolved?
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  This will update the report status to Resolved and add the
+                  resolved date and time.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setResolvingReport(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-6">
+              <DetailField
+                label="Reference"
+                value={resolvingReport.reference}
+              />
+
+              <DetailField
+                label="Resident"
+                value={resolvingReport.resident}
+              />
+
+              <DetailField
+                label="Category"
+                value={resolvingReport.category}
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setResolvingReport(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmResolveReport}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Confirm Resolved
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          REPORT DETAILS MODAL
+      ====================================================== */}
+
+      {selectedReport && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+          <div className="max-h-full w-full max-w-4xl overflow-y-auto rounded-2xl border border-emerald-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Report Details
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  {selectedReport.reference}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_320px]">
+              <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <DetailField
+                    label="Full Name"
+                    value={selectedReport.resident}
+                  />
+
+                  <DetailField
+                    label="Category"
+                    value={selectedReport.category}
+                  />
+
+                  <DetailField
+                    label="Purok"
+                    value={selectedReport.purok}
+                  />
+
+                  <DetailField
+                    label="Sitio"
+                    value={selectedReport.sitio}
+                  />
+
+                  <DetailField
+                    label="Street"
+                    value={selectedReport.street}
+                  />
+
+                  <DetailField
+                    label="Landmark"
+                    value={selectedReport.landmark}
+                  />
+
+                  <DetailField
+                    label="Status"
+                    value={selectedReport.status}
+                  />
+
+                  <DetailField
+                    label="Created At"
+                    value={selectedReport.createdAt}
+                  />
+
+                  {selectedReport.status === 'Resolved' && (
+                    <DetailField
+                      label="Resolved At"
+                      value={selectedReport.resolvedAt}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-5">
+                  <DetailField
+                    label="Description"
+                    value={selectedReport.description}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Submitted Report Picture
+                </p>
+
+                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 text-center">
+                  <div>
+                    <ImageIcon className="mx-auto h-10 w-10 text-[#00A859]" />
+
+                    <p className="mt-3 text-xs font-bold text-slate-600">
+                      Report photo preview
+                    </p>
+
+                    <p className="mx-auto mt-1 max-w-48 text-[11px] leading-5 text-slate-400">
+                      Demo data placeholder for the submitted image.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+              >
+                Close
+              </button>
+
+              {selectedReport.status !== 'Resolved' &&
+                selectedReport.status !== 'Blocked' && (
+                  <button
+                    type="button"
+                    onClick={() => setResolvingReport(selectedReport)}
+                    className="rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+                  >
+                    Mark Resolved
+                  </button>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          VERIFY RESIDENT MODAL
+      ====================================================== */}
+
+      {verifyingResident && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Confirm Verification
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Verify resident account
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setVerifyingResident(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 px-6 py-6 sm:grid-cols-2">
+              <DetailField label="Name" value={verifyingResident.name} />
+              <DetailField label="Email" value={verifyingResident.email} />
+              <DetailField
+                label="Phone Number"
+                value={verifyingResident.phoneNumber}
+              />
+              <DetailField label="Age" value={verifyingResident.age} />
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setVerifyingResident(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmResidentVerification}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Confirm Verify
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          PROFILE MODAL
+      ====================================================== */}
+
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+          <div className="max-h-full w-full max-w-3xl overflow-y-auto rounded-2xl border border-emerald-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Profile
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Barangay Official
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={saveProfile} className="px-6 py-6">
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                  <Mail className="h-4 w-4 text-[#00A859]" />
+                  <span className="truncate text-xs font-semibold text-slate-600">
+                    {adminProfile.email}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                  <Phone className="h-4 w-4 text-[#00A859]" />
+                  <span className="truncate text-xs font-semibold text-slate-600">
+                    {adminProfile.phoneNumber}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                  <MapPin className="h-4 w-4 text-[#00A859]" />
+                  <span className="truncate text-xs font-semibold text-slate-600">
+                    {adminProfile.purok}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <ProfileInput
+                  label="Full Name"
+                  value={adminProfile.fullName}
+                  onChange={(value) =>
+                    updateProfileField('fullName', value)
+                  }
+                />
+
+                <ProfileInput
+                  label="Email"
+                  value={adminProfile.email}
+                  onChange={(value) => updateProfileField('email', value)}
+                  type="email"
+                />
+
+                <ProfileInput
+                  label="Phone Number"
+                  value={adminProfile.phoneNumber}
+                  onChange={(value) =>
+                    updateProfileField('phoneNumber', value)
+                  }
+                />
+
+                <ProfileInput
+                  label="Age"
+                  value={adminProfile.age}
+                  onChange={(value) => updateProfileField('age', value)}
+                  type="number"
+                />
+
+                <ProfileInput
+                  label="Address"
+                  value={adminProfile.address}
+                  onChange={(value) =>
+                    updateProfileField('address', value)
+                  }
+                />
+
+                <ProfileInput
+                  label="Purok"
+                  value={adminProfile.purok}
+                  onChange={(value) => updateProfileField('purok', value)}
+                />
+
+                <ProfileInput
+                  label="Street"
+                  value={adminProfile.street}
+                  onChange={(value) => updateProfileField('street', value)}
+                />
+
+                <ProfileInput
+                  label="Role"
+                  value={adminProfile.role}
+                  onChange={(value) => updateProfileField('role', value)}
+                />
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          SETTINGS MODAL
+      ====================================================== */}
+
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-emerald-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#00A859]">
+                  Settings
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Change Password
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSettingsModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={savePassword} className="space-y-4 px-6 py-6">
+              <ProfileInput
+                label="Current Password"
+                value={passwordForm.currentPassword}
+                onChange={(value) =>
+                  setPasswordForm((form) => ({
+                    ...form,
+                    currentPassword: value,
+                  }))
+                }
+                type="password"
+              />
+
+              <ProfileInput
+                label="New Password"
+                value={passwordForm.newPassword}
+                onChange={(value) =>
+                  setPasswordForm((form) => ({
+                    ...form,
+                    newPassword: value,
+                  }))
+                }
+                type="password"
+              />
+
+              <ProfileInput
+                label="Confirm New Password"
+                value={passwordForm.confirmPassword}
+                onChange={(value) =>
+                  setPasswordForm((form) => ({
+                    ...form,
+                    confirmPassword: value,
+                  }))
+                }
+                type="password"
+              />
+
+              {passwordError && (
+                <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+                  {passwordError}
+                </p>
+              )}
+
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSettingsModalOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-emerald-200 hover:text-[#008F4B]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00A859] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#008F4B]"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Password
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================
           NOTIFICATION
@@ -1352,7 +2547,7 @@ export default function Page() {
           FOOTER
       ====================================================== */}
 
-      <footer className="relative z-10 border-t border-emerald-100 bg-white/80">
+      <footer className="relative z-10 mt-auto border-t border-emerald-100 bg-white/80">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00A859] text-white">
