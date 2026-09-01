@@ -85,6 +85,7 @@ export default function SuperAdminPage() {
   const [superAdminProfile, setSuperAdminProfile] =
     useState<SuperAdminProfile>(DEFAULT_SUPER_ADMIN_PROFILE);
   const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
@@ -108,11 +109,8 @@ export default function SuperAdminPage() {
     setLoadingResidents(true);
     const supabase = createClient();
     const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, phone, purok, age, verification_status, created_at"
-      )
-      .eq("role", "resident")
+      .from("identity_verifications")
+      .select("id, full_name, email, phone, purok, age, status, created_at")
       .order("created_at", { ascending: false });
 
     if (!error && data) {
@@ -125,7 +123,11 @@ export default function SuperAdminPage() {
           purok: r.purok ?? "—",
           age: r.age ?? 0,
           status:
-            r.verification_status === "verified" ? "Verified" : "Unverified",
+            r.status === "verified"
+              ? "Verified"
+              : r.status === "pending"
+                ? "Unverified"
+                : "Unverified",
           joined: r.created_at
             ? new Date(r.created_at).toLocaleDateString()
             : "—",
@@ -210,10 +212,14 @@ export default function SuperAdminPage() {
     newStatus: "verified" | "rejected"
   ) => {
     const supabase = createClient();
-    const { error } = await supabase.rpc("set_resident_verification", {
-      resident_id: residentId,
-      new_status: newStatus,
-    });
+    const { error } = await supabase
+      .from("identity_verifications")
+      .update({
+        status: newStatus,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+      })
+      .eq("id", residentId);
 
     if (error) {
       alert(`Failed to update: ${error.message}`);
@@ -256,25 +262,40 @@ export default function SuperAdminPage() {
     event.preventDefault();
 
     const supabase = createClient();
-    const { data: authData } = await supabase.auth.getUser();
+    const { data: authData, error: userError } = await supabase.auth.getUser();
 
-    if (authData.user) {
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: superAdminProfile.fullName,
-          phone: superAdminProfile.phone,
-        })
-        .eq("id", authData.user.id);
+    if (userError || !authData.user) {
+      setPasswordError("Unable to find your account. Please sign in again.");
+      return;
     }
 
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: superAdminProfile.fullName.trim() || "Super Admin",
+        phone: superAdminProfile.phone.trim() || null,
+      })
+      .eq("id", authData.user.id);
+
+    if (error) {
+      setPasswordError(error.message);
+      return;
+    }
+
+    setPasswordError(null);
     setProfileModalOpen(false);
+    await fetchAdmins();
   };
 
   const handleChangePassword = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+
+    if (!passwordForm.currentPassword.trim()) {
+      setPasswordError("Current password is required.");
+      return;
+    }
 
     if (passwordForm.newPassword.length < 8) {
       setPasswordError("Password must be at least 8 characters.");
@@ -287,6 +308,23 @@ export default function SuperAdminPage() {
     }
 
     const supabase = createClient();
+    const { data: authData } = await supabase.auth.getUser();
+
+    if (!authData.user?.email) {
+      setPasswordError("Unable to verify user session.");
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: authData.user.email,
+      password: passwordForm.currentPassword,
+    });
+
+    if (signInError) {
+      setPasswordError("Current password is incorrect.");
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: passwordForm.newPassword,
     });
@@ -297,7 +335,7 @@ export default function SuperAdminPage() {
     }
 
     setPasswordError(null);
-    setPasswordForm({ newPassword: "", confirmPassword: "" });
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     setPasswordModalOpen(false);
   };
 
@@ -1373,6 +1411,23 @@ export default function SuperAdminPage() {
             </div>
 
             <form onSubmit={handleChangePassword} className="space-y-4 px-6 py-6">
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                  Current Password
+                </span>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(event) =>
+                    setPasswordForm((form) => ({
+                      ...form,
+                      currentPassword: event.target.value,
+                    }))
+                  }
+                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                />
+              </label>
+
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
                   New Password

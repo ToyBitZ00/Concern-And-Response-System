@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import {
   Activity,
   ArrowUpRight,
@@ -97,247 +98,56 @@ type AdminProfile = {
 };
 
 /* =========================================================
-   FAKE DATA
+   LIVE DATA MAPPERS
 ========================================================= */
 
-const REPORTS: Report[] = [
-  {
-    id: '1',
-    reference: 'ECO-2026-0001',
-    resident: 'Juan Dela Cruz',
-    category: 'Clogged Drainage',
-    description: 'Drainage canal is blocked by mixed household waste after heavy rain.',
-    location: 'Purok 2',
-    purok: 'Purok 2',
-    sitio: 'Sitio Riverside',
-    street: 'Riverside Street',
-    landmark: 'Near Barangay Chapel',
-    status: 'Resolved',
-    date: 'Aug 30, 2026',
-    createdAt: 'Aug 30, 2026, 8:30 AM',
-    resolvedAt: 'Aug 31, 2026, 2:15 PM',
-  },
-  {
-    id: '2',
-    reference: 'ECO-2026-0002',
-    resident: 'Maria Santos',
-    category: 'Illegal Dumping',
-    description: 'Sacks of garbage were dumped beside the road overnight.',
-    location: 'Purok 4',
-    purok: 'Purok 4',
-    sitio: 'Sitio Maligaya',
-    street: 'Mabini Street',
-    landmark: 'Beside waiting shed',
-    status: 'Viewed',
-    date: 'Aug 30, 2026',
-    createdAt: 'Aug 30, 2026, 10:05 AM',
-  },
-  {
-    id: '3',
-    reference: 'ECO-2026-0003',
-    resident: 'Pedro Garcia',
-    category: 'Uncollected Trash',
-    description: 'Scheduled collection was missed and trash bags are blocking the sidewalk.',
-    location: 'Purok 1',
-    purok: 'Purok 1',
-    sitio: 'Sitio Centro',
-    street: 'Rizal Street',
-    landmark: 'Across sari-sari store',
-    status: 'Pending',
-    date: 'Aug 29, 2026',
-    createdAt: 'Aug 29, 2026, 4:40 PM',
-  },
-  {
-    id: '4',
-    reference: 'ECO-2026-0004',
-    resident: 'Ana Reyes',
-    category: 'Clogged Drainage',
-    description: 'Water is not flowing through the drainage line near residential houses.',
-    location: 'Purok 3',
-    purok: 'Purok 3',
-    sitio: 'Sitio Masagana',
-    street: 'Bonifacio Street',
-    landmark: 'In front of daycare center',
-    status: 'Resolved',
-    date: 'Aug 28, 2026',
-    createdAt: 'Aug 28, 2026, 9:10 AM',
-    resolvedAt: 'Aug 29, 2026, 11:30 AM',
-  },
-  {
-    id: '5',
-    reference: 'ECO-2026-0005',
-    resident: 'Carlos Mendoza',
-    category: 'Illegal Dumping',
-    description: 'Report photo showed construction debris, but location could not be confirmed.',
-    location: 'Purok 5',
-    purok: 'Purok 5',
-    sitio: 'Sitio San Isidro',
-    street: 'Del Pilar Street',
-    landmark: 'Vacant lot near water pump',
-    status: 'Blocked',
-    date: 'Aug 27, 2026',
-    createdAt: 'Aug 27, 2026, 6:25 PM',
-  },
-  {
-    id: '6',
-    reference: 'ECO-2026-0006',
-    resident: 'Liza Flores',
-    category: 'Uncollected Trash',
-    description: 'Overflowing bins need follow-up collection from the sanitation team.',
-    location: 'Purok 2',
-    purok: 'Purok 2',
-    sitio: 'Sitio Riverside',
-    street: 'A. Luna Street',
-    landmark: 'Barangay covered court',
-    status: 'Pending',
-    date: 'Aug 26, 2026',
-    createdAt: 'Aug 26, 2026, 7:50 AM',
-  },
-  {
-    id: '7',
-    reference: 'ECO-2026-0007',
-    resident: 'Mark Bautista',
-    category: 'Clogged Drainage',
-    description: 'Drainage opening is covered with leaves and plastic bottles.',
-    location: 'Purok 1',
-    purok: 'Purok 1',
-    sitio: 'Sitio Centro',
-    street: 'Quezon Street',
-    landmark: 'Beside elementary school',
-    status: 'Pending',
-    date: 'Aug 25, 2026',
-    createdAt: 'Aug 25, 2026, 1:20 PM',
-  },
-  {
-    id: '8',
-    reference: 'ECO-2026-0008',
-    resident: 'Sofia Navarro',
-    category: 'Illegal Dumping',
-    description: 'Repeated dumping of plastic waste along the corner road.',
-    location: 'Purok 4',
-    purok: 'Purok 4',
-    sitio: 'Sitio Maligaya',
-    street: 'Mabini Street',
-    landmark: 'Near basketball court',
-    status: 'Resolved',
-    date: 'Aug 24, 2026',
-    createdAt: 'Aug 24, 2026, 3:15 PM',
-    resolvedAt: 'Aug 25, 2026, 9:45 AM',
-  },
-  {
-    id: '9',
-    reference: 'ECO-2026-0009',
-    resident: 'Ramon Cruz',
-    category: 'Uncollected Trash',
-    description: 'Duplicate report for a collection issue already handled by sanitation.',
-    location: 'Purok 3',
-    purok: 'Purok 3',
-    sitio: 'Sitio Masagana',
-    street: 'Bonifacio Street',
-    landmark: 'Near health station',
-    status: 'Blocked',
-    date: 'Aug 23, 2026',
-    createdAt: 'Aug 23, 2026, 5:35 PM',
-  },
-  {
-    id: '10',
-    reference: 'ECO-2026-0010',
-    resident: 'Grace Aquino',
-    category: 'Clogged Drainage',
-    description: 'Residents reported foul smell from stagnant water in the drainage canal.',
-    location: 'Purok 5',
-    purok: 'Purok 5',
-    sitio: 'Sitio San Isidro',
-    street: 'Del Pilar Street',
-    landmark: 'Behind public market',
-    status: 'Pending',
-    date: 'Aug 22, 2026',
-    createdAt: 'Aug 22, 2026, 8:05 AM',
-  },
-];
+const mapReportStatus = (status?: string): ReportStatus => {
+  switch (status) {
+    case 'resolved':
+      return 'Resolved';
+    case 'in_progress':
+      return 'Viewed';
+    case 'rejected':
+      return 'Blocked';
+    default:
+      return 'Pending';
+  }
+};
 
-const RESIDENTS: Resident[] = [
-  {
-    id: '1',
-    name: 'Juan Dela Cruz',
-    email: 'juan.delacruz@example.com',
-    phoneNumber: '0917 100 0001',
-    age: 34,
-    purok: 'Purok 2',
-    status: 'Verified',
-    joined: 'Aug 12, 2026',
-  },
-  {
-    id: '2',
-    name: 'Maria Santos',
-    email: 'maria.santos@example.com',
-    phoneNumber: '0917 100 0002',
-    age: 28,
-    purok: 'Purok 4',
-    status: 'Verified',
-    joined: 'Aug 11, 2026',
-  },
-  {
-    id: '3',
-    name: 'Pedro Garcia',
-    email: 'pedro.garcia@example.com',
-    phoneNumber: '0917 100 0003',
-    age: 42,
-    purok: 'Purok 1',
-    status: 'Unverified',
-    joined: 'Aug 10, 2026',
-  },
-  {
-    id: '4',
-    name: 'Ana Reyes',
-    email: 'ana.reyes@example.com',
-    phoneNumber: '0917 100 0004',
-    age: 31,
-    purok: 'Purok 3',
-    status: 'Verified',
-    joined: 'Aug 9, 2026',
-  },
-  {
-    id: '5',
-    name: 'Carlos Mendoza',
-    email: 'carlos.mendoza@example.com',
-    phoneNumber: '0917 100 0005',
-    age: 39,
-    purok: 'Purok 5',
-    status: 'Blocked',
-    joined: 'Aug 8, 2026',
-  },
-  {
-    id: '6',
-    name: 'Liza Flores',
-    email: 'liza.flores@example.com',
-    phoneNumber: '0917 100 0006',
-    age: 26,
-    purok: 'Purok 2',
-    status: 'Verified',
-    joined: 'Aug 7, 2026',
-  },
-  {
-    id: '7',
-    name: 'Mark Bautista',
-    email: 'mark.bautista@example.com',
-    phoneNumber: '0917 100 0007',
-    age: 36,
-    purok: 'Purok 1',
-    status: 'Verified',
-    joined: 'Aug 6, 2026',
-  },
-  {
-    id: '8',
-    name: 'Sofia Navarro',
-    email: 'sofia.navarro@example.com',
-    phoneNumber: '0917 100 0008',
-    age: 24,
-    purok: 'Purok 4',
-    status: 'Unverified',
-    joined: 'Aug 5, 2026',
-  },
-];
+const mapResidentStatus = (status?: string): ResidentStatus => {
+  switch (status) {
+    case 'verified':
+      return 'Verified';
+    case 'rejected':
+      return 'Blocked';
+    default:
+      return 'Unverified';
+  }
+};
+
+const getDbReportUpdateStatus = (status: ReportStatus): 'pending' | 'in_progress' | 'resolved' | 'rejected' => {
+  switch (status) {
+    case 'Viewed':
+      return 'in_progress';
+    case 'Resolved':
+      return 'resolved';
+    case 'Blocked':
+      return 'rejected';
+    default:
+      return 'pending';
+  }
+};
+
+const getDbResidentUpdateStatus = (status: ResidentStatus): 'pending' | 'verified' | 'rejected' => {
+  switch (status) {
+    case 'Verified':
+      return 'verified';
+    case 'Blocked':
+      return 'rejected';
+    default:
+      return 'pending';
+  }
+};
 
 /* =========================================================
    CHART DATA
@@ -523,8 +333,8 @@ export default function Page() {
   const [resolvingReport, setResolvingReport] = useState<Report | null>(null);
   const [verifyingResident, setVerifyingResident] =
     useState<Resident | null>(null);
-  const [reports, setReports] = useState<Report[]>(REPORTS);
-  const [residents, setResidents] = useState<Resident[]>(RESIDENTS);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
 
   const [reportFilter, setReportFilter] = useState<
     'All' | ReportStatus
@@ -557,6 +367,110 @@ export default function Page() {
   const [showNotification, setShowNotification] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
+  const fetchReports = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('reports')
+      .select(
+        'id, reference_number, resident_id, category_id, description, purok, street, landmark, status, created_at, identity_verifications(full_name, email, phone, purok, age, status), waste_categories(name)'
+      )
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch reports:', {
+        message: error.message,
+        code: error.code,
+        details: (error as any).details,
+      });
+      setReports([]);
+      return;
+    }
+
+    console.log('Fetched reports:', data?.length ?? 0);
+
+    const mappedReports: Report[] = (data ?? []).map((report: any) => {
+      const resident = Array.isArray(report.identity_verifications)
+        ? report.identity_verifications[0]
+        : report.identity_verifications;
+      const category = Array.isArray(report.waste_categories)
+        ? report.waste_categories[0]
+        : report.waste_categories;
+
+      const createdAt = report.created_at
+        ? new Date(report.created_at).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : 'Unknown';
+
+      return {
+        id: report.id,
+        reference: report.reference_number ?? 'N/A',
+        resident: resident?.full_name ?? 'Unknown resident',
+        category: category?.name ?? 'Uncategorized',
+        description: report.description ?? 'No description provided.',
+        location: report.purok ?? report.street ?? 'Unknown location',
+        purok: report.purok ?? '',
+        sitio: resident?.purok ?? '',
+        street: report.street ?? '',
+        landmark: report.landmark ?? '',
+        status: mapReportStatus(report.status),
+        date: report.created_at
+          ? new Date(report.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : 'Unknown',
+        createdAt,
+      };
+    });
+
+    setReports(mappedReports);
+  };
+
+  const fetchResidents = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('identity_verifications')
+      .select('id, full_name, email, phone, age, purok, status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch residents:', {
+        message: error.message,
+        code: error.code,
+        details: (error as any).details,
+      });
+      setResidents([]);
+      return;
+    }
+
+    console.log('Fetched residents:', data?.length ?? 0);
+
+    const mappedResidents: Resident[] = (data ?? []).map((resident: any) => ({
+      id: resident.id,
+      name: resident.full_name ?? 'Unknown resident',
+      email: resident.email ?? 'Not provided',
+      phoneNumber: resident.phone ?? 'Not provided',
+      age: resident.age ?? 0,
+      purok: resident.purok ?? 'Not provided',
+      status: mapResidentStatus(resident.status),
+      joined: resident.created_at
+        ? new Date(resident.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Unknown',
+    }));
+
+    setResidents(mappedResidents);
+  };
+
   useEffect(() => {
     const syncSectionFromHash = () => {
       const sectionByHash: Record<string, AdminSection> = {
@@ -568,8 +482,37 @@ export default function Page() {
       setActiveSection(sectionByHash[window.location.hash] ?? 'overview');
     };
 
+    const loadAdminProfile = async () => {
+      const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, email, phone, role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      setAdminProfile({
+        fullName: data?.full_name ?? user.email ?? DEFAULT_ADMIN_PROFILE.fullName,
+        email: data?.email ?? user.email ?? DEFAULT_ADMIN_PROFILE.email,
+        phoneNumber: data?.phone ?? DEFAULT_ADMIN_PROFILE.phoneNumber,
+        address: DEFAULT_ADMIN_PROFILE.address,
+        purok: DEFAULT_ADMIN_PROFILE.purok,
+        street: DEFAULT_ADMIN_PROFILE.street,
+        age: DEFAULT_ADMIN_PROFILE.age,
+        role: data?.role === 'superadmin' ? 'Super Administrator' : 'System Administrator',
+      });
+    };
+
     syncSectionFromHash();
     window.addEventListener('hashchange', syncSectionFromHash);
+
+    void fetchReports();
+    void fetchResidents();
+    void loadAdminProfile();
 
     return () => {
       window.removeEventListener('hashchange', syncSectionFromHash);
@@ -624,7 +567,18 @@ export default function Page() {
     setResidentPage(1);
   };
 
-  const markReportViewed = (reportId: string) => {
+  const markReportViewed = async (reportId: string) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('reports')
+      .update({ status: 'in_progress' })
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('Failed to update report:', error.message);
+      return;
+    }
+
     setReports((currentReports) =>
       currentReports.map((report) =>
         report.id === reportId
@@ -647,7 +601,7 @@ export default function Page() {
     setShowNotification(true);
   };
 
-  const resolveReport = (reportId: string) => {
+  const resolveReport = async (reportId: string) => {
     const resolvedAt = new Date().toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -655,6 +609,17 @@ export default function Page() {
       hour: 'numeric',
       minute: '2-digit',
     });
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('reports')
+      .update({ status: 'resolved' })
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('Failed to resolve report:', error.message);
+      return;
+    }
 
     setReports((currentReports) =>
       currentReports.map((report) =>
@@ -687,7 +652,18 @@ export default function Page() {
     setResolvingReport(null);
   };
 
-  const blockResident = (resident: Resident) => {
+  const blockResident = async (resident: Resident) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('identity_verifications')
+      .update({ status: 'rejected' })
+      .eq('id', resident.id);
+
+    if (error) {
+      console.error('Failed to reject resident:', error.message);
+      return;
+    }
+
     setResidents((currentResidents) =>
       currentResidents.map((item) =>
         item.id === resident.id
@@ -723,8 +699,19 @@ export default function Page() {
     setShowNotification(true);
   };
 
-  const confirmResidentVerification = () => {
+  const confirmResidentVerification = async () => {
     if (!verifyingResident) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('identity_verifications')
+      .update({ status: 'verified' })
+      .eq('id', verifyingResident.id);
+
+    if (error) {
+      console.error('Failed to verify resident:', error.message);
+      return;
+    }
 
     setResidents((currentResidents) =>
       currentResidents.map((resident) =>
@@ -750,17 +737,77 @@ export default function Page() {
     }));
   };
 
-  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const supabase = createClient();
+    const { data: authData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !authData.user) {
+      setPasswordError('Unable to find your account. Please sign in again.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: adminProfile.fullName.trim() || 'Barangay Official',
+        phone: adminProfile.phoneNumber.trim() || null,
+      })
+      .eq('id', authData.user.id);
+
+    if (error) {
+      setPasswordError(error.message);
+      return;
+    }
+
+    setPasswordError('');
     setProfileModalOpen(false);
     setShowNotification(true);
   };
 
-  const savePassword = (event: FormEvent<HTMLFormElement>) => {
+  const savePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!passwordForm.currentPassword.trim()) {
+      setPasswordError('Current password is required.');
+      return;
+    }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      return;
+    }
+
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getUser();
+
+    if (!authData.user?.email) {
+      setPasswordError('Unable to verify user session.');
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: authData.user.email,
+      password: passwordForm.currentPassword,
+    });
+
+    if (signInError) {
+      setPasswordError('Current password is incorrect.');
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: passwordForm.newPassword,
+    });
+
+    if (error) {
+      setPasswordError(error.message);
       return;
     }
 
