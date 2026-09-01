@@ -364,7 +364,6 @@ export default function Page() {
   });
   const [passwordError, setPasswordError] = useState('');
 
-  const [showNotification, setShowNotification] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
   const fetchReports = async () => {
@@ -598,7 +597,6 @@ export default function Page() {
           }
         : report
     );
-    setShowNotification(true);
   };
 
   const resolveReport = async (reportId: string) => {
@@ -642,7 +640,6 @@ export default function Page() {
           }
         : report
     );
-    setShowNotification(true);
   };
 
   const confirmResolveReport = () => {
@@ -696,7 +693,6 @@ export default function Page() {
           }
         : report
     );
-    setShowNotification(true);
   };
 
   const confirmResidentVerification = async () => {
@@ -724,7 +720,6 @@ export default function Page() {
       )
     );
     setVerifyingResident(null);
-    setShowNotification(true);
   };
 
   const updateProfileField = (
@@ -763,7 +758,6 @@ export default function Page() {
 
     setPasswordError('');
     setProfileModalOpen(false);
-    setShowNotification(true);
   };
 
   const savePassword = async (event: FormEvent<HTMLFormElement>) => {
@@ -818,7 +812,6 @@ export default function Page() {
       confirmPassword: '',
     });
     setSettingsModalOpen(false);
-    setShowNotification(true);
   };
 
   const signOut = () => {
@@ -2680,39 +2673,6 @@ export default function Page() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          NOTIFICATION
-      ====================================================== */}
-
-      {showNotification && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-fade-right mobile-notification">
-          <div className="flex max-w-sm items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_20px_60px_rgba(0,100,60,0.18)]">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A859]">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-sm font-bold text-slate-900">
-                Demo Action
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                This button is connected to fake data for now.
-                Connect it to your Supabase update action later.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowNotification(false)}
-              className="text-slate-300 transition hover:text-slate-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         </div>
       )}
