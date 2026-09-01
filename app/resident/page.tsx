@@ -21,20 +21,44 @@ import {
   Search,
   Clock,
   SearchX,
-  Menu // <-- Imported the Menu icon for the mobile navbar
+  Menu,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type PhotoData = {
   file: File;
   preview: string;
 };
 
-// Types for Tracking
-type TrackedReport = {
+type WasteCategory = {
   id: string;
-  status: "Submitted" | "Pending" | "Viewed" | "Resolved";
+  name: string;
+};
+
+type TrackedReport = {
+  reference_number: string;
+  status: string;
   category: string;
-  date: string;
+  created_at: string;
+};
+
+type IdentityRecord = {
+  id: string;
+  full_name: string;
+  status: string;
+};
+
+const RESIDENT_STORAGE_KEY = "econcern-resident-identity";
+
+const normalizeIdentityStatus = (status?: string) => {
+  if (status === "verified") return "Verified";
+  if (status === "pending") return "Pending";
+  return "Unverified";
+};
+
+const buildReferenceNumber = () => {
+  const year = new Date().getFullYear();
+  return `ECO-${year}-${Date.now().toString().slice(-6)}`;
 };
 
 export default function ReportPage() {
@@ -56,6 +80,11 @@ export default function ReportPage() {
   const [purok, setPurok] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [identityStatus, setIdentityStatus] = useState<
+    "Unverified" | "Pending" | "Verified"
+  >("Unverified");
+  const [identityId, setIdentityId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<WasteCategory[]>([]);
 
   // Validation Error States
   const [errors, setErrors] = useState({
@@ -86,19 +115,89 @@ export default function ReportPage() {
   const [trackedResult, setTrackedResult] = useState<TrackedReport | null>(null);
   const [trackError, setTrackError] = useState(false);
 
-  // =======================================================================
-  // DEBOUNCE DELAY IMPLEMENTATION (Database check simulation)
-  // =======================================================================
   useEffect(() => {
-    if (email.length > 5 && !isIdentityLocked && !errors.email) {
-      const delayDebounceFn = setTimeout(() => {
-        // TODO: Replace with your actual Supabase query
-        console.log("Checking database for existing user:", email);
-      }, 800);
+    void fetchCategories();
+    void restoreSavedResident();
+  }, []);
 
-      return () => clearTimeout(delayDebounceFn);
+  const fetchCategories = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("waste_categories")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+
+      if (!error && data) {
+        setCategories(data as WasteCategory[]);
+        if (data.length > 0 && !data.some((category) => category.name === reportType)) {
+          setReportType(data[0].name);
+        }
+      }
+    } catch {
+      // fallback keeps the default category list when Supabase is unavailable.
     }
-  }, [email, isIdentityLocked, errors.email]);
+  };
+
+  const saveResidentIdentity = (
+    savedId: string | null,
+    payload: Record<string, string>,
+    status: "Unverified" | "Pending" | "Verified" = identityStatus
+  ) => {
+    if (typeof window === "undefined") return;
+
+    const record = {
+      id: savedId ?? undefined,
+      ...payload,
+      status,
+    };
+
+    window.localStorage.setItem(RESIDENT_STORAGE_KEY, JSON.stringify(record));
+  };
+
+  const restoreSavedResident = async () => {
+    if (typeof window === "undefined") return;
+
+    const savedValue = window.localStorage.getItem(RESIDENT_STORAGE_KEY);
+    if (!savedValue) return;
+
+    try {
+      const saved = JSON.parse(savedValue) as {
+        id?: string;
+        full_name?: string;
+        age?: string;
+        purok?: string;
+        email?: string;
+        phone?: string;
+        status?: string;
+      };
+
+      const id = saved.id;
+      if (!id) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_identity_verification", {
+        p_id: id,
+      });
+
+      if (error || !data || data.length === 0) {
+        return;
+      }
+
+      const record = data[0] as IdentityRecord;
+      setIdentityId(record.id);
+      setFullName(record.full_name ?? saved.full_name ?? "");
+      setAge(saved.age ?? "");
+      setPurok(saved.purok ?? "");
+      setEmail(saved.email ?? "");
+      setPhone(saved.phone ?? "");
+      setIdentityStatus(normalizeIdentityStatus(record.status ?? saved.status));
+      setIsIdentityLocked(true);
+    } catch {
+      // no-op: if the saved data is invalid, the resident can enter it again.
+    }
+  };
 
   // =======================================================================
   // REAL-TIME VALIDATION RULES
@@ -191,23 +290,121 @@ export default function ReportPage() {
   // =======================================================================
   // FINAL VERIFICATION LOGIC
   // =======================================================================
-  const handleVerifyIdentity = () => {
+  const handleVerifyIdentity = async () => {
     const nameErr = validateName(fullName) || (!fullName ? "Required field" : "");
     const ageErr = validateAge(age) || (!age ? "Required field" : "");
-    const purokErr = validateLocationField(purok, "Purok/Street") || (!purok ? "Required field" : "");
+    const purokErr =
+      validateLocationField(purok, "Purok/Street") || (!purok ? "Required field" : "");
     const emailErr = validateEmail(email) || (!email ? "Required field" : "");
     const phoneErr = validatePhone(phone) || (!phone ? "Required field" : "");
 
     if (nameErr || ageErr || purokErr || emailErr || phoneErr) {
-      setErrors({ fullName: nameErr, age: ageErr, purok: purokErr, email: emailErr, phone: phoneErr });
+      setErrors({
+        fullName: nameErr,
+        age: ageErr,
+        purok: purokErr,
+        email: emailErr,
+        phone: phoneErr,
+      });
       return;
     }
 
     setIsChecking(true);
-    setTimeout(() => {
-      setIsChecking(false);
+
+    try {
+      const supabase = createClient();
+      const { data: existingRows, error: matchError } = await supabase
+        .from("identity_verifications")
+        .select("id, full_name, status")
+        .or(`email.eq.${email.trim()},phone.eq.${phone.trim()}`)
+        .limit(1);
+
+      let nextIdentity: IdentityRecord | null = null;
+
+      if (!matchError && existingRows && existingRows.length > 0) {
+        nextIdentity = existingRows[0] as IdentityRecord;
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("identity_verifications")
+          .insert([
+            {
+              full_name: fullName.trim(),
+              age: Number.parseInt(age, 10),
+              purok: purok.trim(),
+              email: email.trim(),
+              phone: phone.trim(),
+              status: "pending",
+            },
+          ])
+          .select("id, full_name, status")
+          .single();
+
+        if (insertError) throw insertError;
+        nextIdentity = inserted as IdentityRecord;
+      }
+
+      const nextStatus = normalizeIdentityStatus(nextIdentity?.status ?? "pending");
+      setIdentityId(nextIdentity.id);
+      setIdentityStatus(nextStatus);
       setIsIdentityLocked(true);
-    }, 1200);
+      saveResidentIdentity(
+        nextIdentity.id,
+        {
+          full_name: fullName.trim(),
+          age,
+          purok: purok.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+        },
+        nextStatus
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Unknown database error";
+
+      const details =
+        typeof error === "object" && error !== null && "details" in error
+          ? String((error as { details?: unknown }).details ?? "")
+          : "";
+
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code ?? "")
+          : "";
+
+      const hint =
+        typeof error === "object" && error !== null && "hint" in error
+          ? String((error as { hint?: unknown }).hint ?? "")
+          : "";
+
+      console.error("Failed to save resident identity", {
+        message,
+        details,
+        code,
+        hint,
+        raw: error,
+      });
+
+      const isRowLevelSecurityIssue =
+        message.toLowerCase().includes("row-level") ||
+        message.toLowerCase().includes("policy") ||
+        message.toLowerCase().includes("permission denied");
+
+      setErrors((prev) => ({
+        ...prev,
+        email: isRowLevelSecurityIssue
+          ? "Identity verification is blocked by Supabase RLS. Enable the public insert policy for identity_verifications."
+          : details
+            ? `Identity verification failed: ${details}`
+            : `Identity verification failed: ${message}`,
+      }));
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   // =======================================================================
@@ -223,11 +420,18 @@ export default function ReportPage() {
     setPhoto(null);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const rpErr = validateLocationField(reportPurok, "Purok/Sitio") || (!reportPurok ? "Required field" : "");
-    const rsErr = validateLocationField(reportStreet, "Street") || (!reportStreet ? "Required field" : "");
+    if (!identityId) {
+      setActiveTab("info");
+      return;
+    }
+
+    const rpErr =
+      validateLocationField(reportPurok, "Purok/Sitio") || (!reportPurok ? "Required field" : "");
+    const rsErr =
+      validateLocationField(reportStreet, "Street") || (!reportStreet ? "Required field" : "");
     const dErr = !description.trim() ? "Required field" : "";
 
     if (rpErr || rsErr || dErr) {
@@ -237,18 +441,92 @@ export default function ReportPage() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const currentYear = new Date().getFullYear();
-      const generatedId = Math.floor(Math.random() * 1000) + 1; 
-      const referenceNumber = `ECO-${currentYear}-${generatedId}`;
+    try {
+      const supabase = createClient();
+      const selectedCategory =
+        categories.find((category) => category.name === reportType) ?? categories[0];
 
+      let evidenceUrl: string | null = null;
+      if (photo?.file) {
+        const safeName = `${Date.now()}-${photo.file.name}`.replace(/\s+/g, "-");
+        const { error: uploadError } = await supabase.storage
+          .from("resident-report-evidence")
+          .upload(safeName, photo.file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          const { data } = supabase.storage
+            .from("resident-report-evidence")
+            .getPublicUrl(safeName);
+
+          evidenceUrl = data?.publicUrl ?? null;
+        }
+      }
+
+      const referenceNumber = buildReferenceNumber();
+      const { error: reportError } = await supabase.from("reports").insert([
+        {
+          reference_number: referenceNumber,
+          resident_id: identityId,
+          category_id: selectedCategory?.id ?? null,
+          purok: reportPurok.trim(),
+          street: reportStreet.trim(),
+          landmark: reportLandmark.trim() || null,
+          description: description.trim(),
+          status: "pending",
+          location_source: "resident_adjusted",
+          evidence_url: evidenceUrl,
+        },
+      ]);
+
+      if (reportError) throw reportError;
       setSubmittedReference(referenceNumber);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Unknown error";
+
+      const details =
+        typeof error === "object" && error !== null && "details" in error
+          ? String((error as { details?: unknown }).details ?? "")
+          : "";
+
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code ?? "")
+          : "";
+
+      const hint =
+        typeof error === "object" && error !== null && "hint" in error
+          ? String((error as { hint?: unknown }).hint ?? "")
+          : "";
+
+      console.error("Failed to submit report", {
+        message,
+        details,
+        code,
+        hint,
+        raw: error,
+      });
+
+      setReportErrors((prev) => ({
+        ...prev,
+        description: details
+          ? `Report submission failed: ${details}`
+          : `Could not submit the report: ${message}`,
+      }));
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   const handleResetForm = () => {
-    setReportType("Clogged Drainage");
+    setReportType(categories.length > 0 ? categories[0].name : "Clogged Drainage");
     setReportPurok("");
     setReportStreet("");
     setReportLandmark("");
@@ -268,35 +546,97 @@ export default function ReportPage() {
   // =======================================================================
   // TRACKING LOGIC (WITH NOT FOUND STATE)
   // =======================================================================
-  const handleTrackSubmit = (overrideId?: string) => {
+  const handleTrackSubmit = async (overrideId?: string) => {
     const searchId = overrideId || trackInput;
     if (!searchId) return;
 
     setIsTracking(true);
     setTrackError(false);
     setTrackedResult(null);
-    
-    // Simulate database lookup delay
-    setTimeout(() => {
-      // MOCK DATABASE CHECK: If the input doesn't start with "ECO-", trigger the "Not Found" error
-      if (!searchId.toUpperCase().startsWith("ECO-")) {
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("track_report", {
+        p_reference: searchId,
+      });
+
+      if (error || !data || data.length === 0) {
         setTrackError(true);
-        setIsTracking(false);
         return;
       }
 
-      // If it passes, show the mocked result
+      const report = data[0] as TrackedReport;
       setTrackedResult({
-        id: searchId.toUpperCase(),
-        status: "Viewed", 
-        category: reportType || "Environmental Concern",
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        reference_number: report.reference_number,
+        status: report.status ?? "pending",
+        category: report.category ?? "Environmental Concern",
+        created_at: report.created_at
+          ? new Date(report.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "Recently",
       });
+    } catch {
+      setTrackError(true);
+    } finally {
       setIsTracking(false);
-    }, 1000);
+    }
   };
 
   const trackingSteps = ["Submitted", "Pending", "Viewed", "Resolved"];
+
+  const getStatusChipClass = (status: string) => {
+    const value = status.toLowerCase();
+
+    if (value === "resolved") {
+      return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+    }
+
+    if (value === "in_progress") {
+      return "bg-blue-50 text-blue-700 border border-blue-200";
+    }
+
+    if (value === "rejected") {
+      return "bg-red-50 text-red-700 border border-red-200";
+    }
+
+    return "bg-amber-50 text-amber-700 border border-amber-200";
+  };
+
+  const getIdentityStatusClass = (status: "Unverified" | "Pending" | "Verified") => {
+    if (status === "Verified") {
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+
+    if (status === "Pending") {
+      return "border border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    return "border border-red-200 bg-red-50 text-red-700";
+  };
+
+  const getIdentityStatusMessage = (status: "Unverified" | "Pending" | "Verified") => {
+    if (status === "Verified") {
+      return "Your resident profile is verified and ready for report submission.";
+    }
+
+    if (status === "Pending") {
+      return "Your resident profile is pending review from the barangay team.";
+    }
+
+    return "Awaiting admin verification for official resident status.";
+  };
+
+  const formatTrackedStatus = (status: string) => {
+    const value = status.toLowerCase();
+
+    if (value === "in_progress") return "Viewed";
+    if (value === "resolved") return "Resolved";
+    if (value === "rejected") return "Rejected";
+    return "Pending";
+  };
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#F6FBF8] font-sans text-gray-900 selection:bg-emerald-200">
@@ -499,11 +839,11 @@ export default function ReportPage() {
                           <div>
                             <div className="flex flex-wrap items-center gap-3">
                               <h3 className="text-xl font-bold text-gray-900">{fullName}</h3>
-                              <span className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                <AlertCircle className="h-3.5 w-3.5" /> Unverified
+                              <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getIdentityStatusClass(identityStatus)}`}>
+                                <AlertCircle className="h-3.5 w-3.5" /> {identityStatus}
                               </span>
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">Awaiting admin verification for official resident status.</p>
+                            <p className="mt-1 text-xs text-gray-500">{getIdentityStatusMessage(identityStatus)}</p>
                           </div>
                           <button type="button" onClick={() => setIsIdentityLocked(false)} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900">
                             <Edit3 className="h-3.5 w-3.5" /> Edit
@@ -549,9 +889,19 @@ export default function ReportPage() {
                         <label className="mb-1.5 block text-xs font-semibold text-gray-700">Report Category</label>
                         <div className="relative">
                           <select value={reportType} onChange={(e) => setReportType(e.target.value)} className="w-full cursor-pointer appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-all focus:border-[#00A859] focus:bg-white focus:ring-4 focus:ring-emerald-500/10">
-                            <option value="Clogged Drainage">Clogged Drainage</option>
-                            <option value="Illegal Dumping">Illegal Dumping</option>
-                            <option value="Uncollected Trash">Uncollected Trash</option>
+                            {categories.length > 0 ? (
+                              categories.map((category) => (
+                                <option key={category.id} value={category.name}>
+                                  {category.name}
+                                </option>
+                              ))
+                            ) : (
+                              <>
+                                <option value="Clogged Drainage">Clogged Drainage</option>
+                                <option value="Illegal Dumping">Illegal Dumping</option>
+                                <option value="Uncollected Trash">Uncollected Trash</option>
+                              </>
+                            )}
                           </select>
                           <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                         </div>
@@ -780,18 +1130,14 @@ export default function ReportPage() {
                           {trackedResult.category}
                         </p>
                         <h3 className="mt-1 text-xl font-black text-gray-900">
-                          {trackedResult.id}
+                          {trackedResult.reference_number}
                         </h3>
                         <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                          <Clock className="h-3.5 w-3.5" /> Date Submitted: {trackedResult.date}
+                          <Clock className="h-3.5 w-3.5" /> Date Submitted: {trackedResult.created_at}
                         </p>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${
-                        trackedResult.status === "Resolved" ? "bg-emerald-100 text-emerald-700" :
-                        trackedResult.status === "Viewed" ? "bg-blue-50 text-blue-700 border border-blue-200" :
-                        "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}>
-                        {trackedResult.status}
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${getStatusChipClass(trackedResult.status)}`}>
+                        {formatTrackedStatus(trackedResult.status)}
                       </span>
                     </div>
 
@@ -809,7 +1155,14 @@ export default function ReportPage() {
 
                         {/* Steps */}
                         {trackingSteps.map((step, index) => {
-                          const currentIndex = trackingSteps.indexOf(trackedResult.status);
+                          const currentIndex =
+                            trackedResult.status === "resolved"
+                              ? 3
+                              : trackedResult.status === "in_progress"
+                                ? 2
+                                : trackedResult.status === "pending"
+                                  ? 1
+                                  : 0;
                           const isCompleted = index <= currentIndex;
                           const isActive = index === currentIndex;
 
@@ -834,10 +1187,10 @@ export default function ReportPage() {
                     {/* Dynamic Message based on status */}
                     <div className="mt-12 rounded-xl bg-white p-4 text-center shadow-sm">
                       <p className="text-sm text-gray-600">
-                        {trackedResult.status === "Submitted" && "Your report has been received and is waiting in the queue."}
-                        {trackedResult.status === "Pending" && "A barangay official is currently reviewing your submission."}
-                        {trackedResult.status === "Viewed" && "Your report has been viewed by authorities and action is being planned."}
-                        {trackedResult.status === "Resolved" && "This issue has been successfully resolved. Thank you for keeping our community clean!"}
+                        {trackedResult.status === "pending" && "A barangay official is currently reviewing your submission."}
+                        {trackedResult.status === "in_progress" && "Your report has been reviewed by authorities and action is being planned."}
+                        {trackedResult.status === "resolved" && "This issue has been successfully resolved. Thank you for keeping our community clean!"}
+                        {trackedResult.status === "rejected" && "This report was not accepted for processing. Please contact the barangay for clarification."}
                       </p>
                     </div>
 
