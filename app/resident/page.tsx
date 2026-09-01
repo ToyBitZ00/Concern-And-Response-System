@@ -20,7 +20,8 @@ import {
   Copy,
   Search,
   Clock,
-  SearchX // <-- Added this new icon for the "Not Found" state
+  SearchX,
+  Menu // <-- Imported the Menu icon for the mobile navbar
 } from "lucide-react";
 
 type PhotoData = {
@@ -39,6 +40,7 @@ type TrackedReport = {
 export default function ReportPage() {
   // Navigation State
   const [activeTab, setActiveTab] = useState("info");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // <-- Mobile menu state
 
   // Report Details State
   const [reportType, setReportType] = useState("Clogged Drainage");
@@ -82,7 +84,7 @@ export default function ReportPage() {
   const [trackInput, setTrackInput] = useState("");
   const [isTracking, setIsTracking] = useState(false);
   const [trackedResult, setTrackedResult] = useState<TrackedReport | null>(null);
-  const [trackError, setTrackError] = useState(false); // <-- New state for handling "Not Found"
+  const [trackError, setTrackError] = useState(false);
 
   // =======================================================================
   // DEBOUNCE DELAY IMPLEMENTATION (Database check simulation)
@@ -90,8 +92,10 @@ export default function ReportPage() {
   useEffect(() => {
     if (email.length > 5 && !isIdentityLocked && !errors.email) {
       const delayDebounceFn = setTimeout(() => {
+        // TODO: Replace with your actual Supabase query
         console.log("Checking database for existing user:", email);
       }, 800);
+
       return () => clearTimeout(delayDebounceFn);
     }
   }, [email, isIdentityLocked, errors.email]);
@@ -312,9 +316,13 @@ export default function ReportPage() {
         html { scroll-behavior: smooth; }
       `}</style>
 
-      {/* NAVBAR */}
+      {/* =====================================================
+          NAVBAR (Updated with Mobile Menu)
+      ====================================================== */}
       <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center px-6 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-6 lg:px-8">
+          
+          {/* LOGO */}
           <a href="/" className="group flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00A859] text-white shadow-sm transition-all duration-300 group-hover:rotate-6 group-hover:scale-105">
               <Sparkles className="h-4 w-4" />
@@ -324,19 +332,54 @@ export default function ReportPage() {
               <span className="ml-1 text-[9px] font-bold uppercase tracking-[0.15em] text-[#00A859]">Barangay</span>
             </div>
           </a>
-          <div className="ml-auto flex items-center gap-5 lg:gap-8">
-            <nav className="hidden items-center gap-6 lg:flex">
+
+          {/* DESKTOP NAVIGATION */}
+          <div className="hidden md:flex items-center gap-5 lg:gap-8">
+            <nav className="flex items-center gap-6">
               <a href="/" className="group relative py-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-950">
                 Home
                 <span className="absolute bottom-0 left-0 h-0.5 w-0 rounded-full bg-[#00A859] transition-all duration-300 group-hover:w-full" />
               </a>
             </nav>
-            <div className="hidden h-7 w-px bg-gray-200 lg:block" />
-            <a href="/login" className="hidden text-sm font-semibold text-gray-600 transition-colors hover:text-gray-950 sm:block">
+            <div className="h-7 w-px bg-gray-200" />
+            <a href="/login" className="text-sm font-semibold text-gray-600 transition-colors hover:text-gray-950">
               Admin Login
             </a>
           </div>
+
+          {/* MOBILE MENU TOGGLE BUTTON */}
+          <div className="flex items-center md:hidden">
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
+
+        {/* MOBILE DROPDOWN MENU */}
+        {isMobileMenuOpen && (
+          <div className="absolute left-0 top-[72px] w-full border-b border-gray-100 bg-white shadow-lg md:hidden">
+            <div className="flex flex-col space-y-4 px-6 py-5">
+              <a 
+                href="/" 
+                className="text-base font-medium text-gray-700 transition-colors hover:text-[#00A859]"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Home
+              </a>
+              <a 
+                href="/login" 
+                className="text-base font-medium text-gray-700 transition-colors hover:text-[#00A859]"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Admin Login
+              </a>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* MAIN CONTENT */}
